@@ -1,0 +1,64 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/eridia/initium/backend/internal/adapter/middleware"
+	"github.com/eridia/initium/backend/internal/domain"
+)
+
+// UserHandler handles user profile endpoints.
+type UserHandler struct {
+	users domain.UserService
+}
+
+// NewUserHandler creates a new UserHandler.
+func NewUserHandler(users domain.UserService) *UserHandler {
+	return &UserHandler{users: users}
+}
+
+// GetProfile returns the current user's profile.
+func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+
+	user, err := h.users.GetProfile(r.Context(), userID)
+	if err != nil {
+		Error(w, r, err)
+		return
+	}
+
+	JSON(w, r, http.StatusOK, map[string]any{
+		"id":         user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"avatar_url": user.AvatarURL,
+		"created_at": user.CreatedAt,
+	})
+}
+
+// UpdateProfile updates the current user's name.
+func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+
+	var body struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		Error(w, r, domain.ErrEmailRequired)
+		return
+	}
+
+	user, err := h.users.UpdateProfile(r.Context(), userID, body.Name)
+	if err != nil {
+		Error(w, r, err)
+		return
+	}
+
+	JSON(w, r, http.StatusOK, map[string]any{
+		"id":         user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"avatar_url": user.AvatarURL,
+	})
+}

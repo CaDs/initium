@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS magic_link_tokens;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS users;
