@@ -27,15 +27,24 @@ mobile/android/local.properties
 node_modules/
 vendor/
 
-# Environment
-.env
-.env.local
-.env.*.local
+# Environment — ignore all .env variants, only allow .env.example
+.env*
 !.env.example
 
-# Keys
+# Keys & Credentials
 *.pem
 *.key
+*.p12
+*.p8
+*.pfx
+*.jks
+*.keystore
+*.secret
+*.secrets
+
+# Firebase / GCP credentials (mobile)
+google-services.json
+GoogleService-Info.plist
 
 # IDE
 .idea/
@@ -51,6 +60,9 @@ Thumbs.db
 # Testing
 coverage/
 *.coverprofile
+
+# Claude Code
+.claude/
 
 # Build
 dist/
