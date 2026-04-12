@@ -4,6 +4,8 @@ import 'package:mobile/l10n/app_localizations.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../shared/dev_mode_banner.dart';
+import '../shared/theme_switcher.dart';
+import '../shared/locale_switcher.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -30,12 +32,10 @@ class HomeScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.appName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
-            tooltip: l10n.logout,
-          ),
+        actions: const [
+          LocaleSwitcher(),
+          ThemeSwitcher(),
+          SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -82,6 +82,15 @@ class HomeScreen extends ConsumerWidget {
                           _profileRow(context, l10n.labelUserId, user.id),
                         ],
                       ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  OutlinedButton.icon(
+                    onPressed: () => ref.read(authProvider.notifier).logout(),
+                    icon: const Icon(Icons.logout),
+                    label: Text(l10n.logout),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 48),
                     ),
                   ),
                 ],

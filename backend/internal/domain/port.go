@@ -34,6 +34,7 @@ type AuthService interface {
 	VerifyMagicLink(ctx context.Context, token string) (*User, *TokenPair, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (*TokenPair, error)
 	Logout(ctx context.Context, refreshToken string) error
+	LogoutAll(ctx context.Context, userID string) error
 }
 
 // UserService defines user profile operations.

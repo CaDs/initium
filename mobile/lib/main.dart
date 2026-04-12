@@ -5,6 +5,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 import 'data/local/token_storage.dart';
 import 'providers/api_provider.dart';
+import 'providers/theme_provider.dart';
+import 'providers/locale_provider.dart';
 import 'presentation/router/app_router.dart';
 
 const _devBypassAuth = bool.fromEnvironment('DEV_BYPASS_AUTH');
@@ -36,10 +38,13 @@ class InitiumApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
       title: 'Initium',
       debugShowCheckedModeBanner: false,
+      locale: locale,
       localizationsDelegates: const [
         AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
@@ -61,7 +66,7 @@ class InitiumApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
     );
   }

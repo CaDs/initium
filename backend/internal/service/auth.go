@@ -186,6 +186,14 @@ func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
+// LogoutAll revokes all sessions for the given user.
+func (s *AuthService) LogoutAll(ctx context.Context, userID string) error {
+	if err := s.sessions.RevokeAllUserSessions(ctx, userID); err != nil {
+		return fmt.Errorf("revoking all sessions: %w", err)
+	}
+	return nil
+}
+
 func (s *AuthService) findOrCreateUser(ctx context.Context, email, name, avatarURL, provider string) (*domain.User, error) {
 	user, err := s.users.FindByEmail(ctx, email)
 	if err == nil {

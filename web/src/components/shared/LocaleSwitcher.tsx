@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
-const localeLabels: Record<string, string> = {
-  en: "EN",
-  es: "ES",
-  ja: "JA",
-};
+const locales = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "ja", label: "日本語" },
+];
 
 export default function LocaleSwitcher({ current }: { current: string }) {
   const router = useRouter();
@@ -21,23 +21,18 @@ export default function LocaleSwitcher({ current }: { current: string }) {
   }
 
   return (
-    <div className="flex items-center gap-1" role="radiogroup" aria-label="Language">
-      {Object.entries(localeLabels).map(([locale, label]) => (
-        <button
-          key={locale}
-          onClick={() => switchLocale(locale)}
-          disabled={isPending}
-          role="radio"
-          aria-checked={locale === current}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            locale === current
-              ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-              : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white"
-          }`}
-        >
+    <select
+      value={current}
+      onChange={(e) => switchLocale(e.target.value)}
+      disabled={isPending}
+      aria-label="Language"
+      className="bg-transparent border border-border rounded px-2 py-1 text-sm text-foreground cursor-pointer focus:outline-none focus:ring-2 focus:ring-accent"
+    >
+      {locales.map(({ code, label }) => (
+        <option key={code} value={code}>
           {label}
-        </button>
+        </option>
       ))}
-    </div>
+    </select>
   );
 }

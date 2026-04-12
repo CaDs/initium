@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
 	"github.com/eridia/initium/backend/internal/infra/google"
 )
@@ -161,6 +162,20 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 
 	clearTokenCookies(w)
 	JSON(w, r, http.StatusOK, map[string]string{"message": "logged out"})
+}
+
+// LogoutAll revokes all sessions for the current user.
+func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserID(r.Context())
+
+	if err := h.auth.LogoutAll(r.Context(), userID); err != nil {
+		slog.Error("logout all failed", "error", err)
+		Error(w, r, err)
+		return
+	}
+
+	clearTokenCookies(w)
+	JSON(w, r, http.StatusOK, map[string]string{"message": "all sessions revoked"})
 }
 
 func (h *AuthHandler) setTokenCookies(w http.ResponseWriter, pair *domain.TokenPair) {
