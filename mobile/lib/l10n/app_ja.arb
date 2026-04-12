@@ -1,0 +1,35 @@
+{
+  "@@locale": "ja",
+  "appName": "Initium",
+  "landingTitle": "Initiumへようこそ",
+  "landingSubtitle": "次の素晴らしいアイデアはここから始まります。",
+  "landingCta": "はじめる",
+  "loginTitle": "ログイン",
+  "loginSubtitle": "パスワード不要。",
+  "loginDivider": "または",
+  "loginGoogle": "Googleでログイン",
+  "loginGoogleSetup": "Google Sign-In: google-services.jsonを設定してください",
+  "loginMagicPlaceholder": "メールアドレスを入力",
+  "loginMagicSubmit": "マジックリンクを送信",
+  "loginMagicSending": "送信中...",
+  "loginMagicSent": "メールを確認してください！",
+  "loginMagicSentDetail": "マジックリンクが送信されました。",
+  "homeWelcome": "おかえりなさい！",
+  "homeWelcomeUser": "おかえりなさい、{name}さん！",
+  "@homeWelcomeUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "homeSubtitle": "認証済みのホーム画面です。",
+  "homeProfile": "プロフィール",
+  "labelEmail": "メール",
+  "labelName": "名前",
+  "labelUserId": "ユーザーID",
+  "devBanner": "開発モード — dev@initium.localとしてログイン中",
+  "logout": "ログアウト",
+  "dashboard": "ダッシュボード",
+  "themeLight": "ライト",
+  "themeDark": "ダーク",
+  "themeSystem": "システム"
+}

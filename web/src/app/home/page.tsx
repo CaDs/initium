@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
 import type { User } from "@/lib/types";
 
@@ -9,27 +10,31 @@ export default async function HomePage() {
     redirect("/login");
   }
 
-  const user = result.data;
+  return <HomeContent user={result.data} />;
+}
+
+function HomeContent({ user }: { user: User }) {
+  const t = useTranslations("home");
 
   return (
     <div className="max-w-2xl mx-auto px-6 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">
-        Welcome back{user.name ? `, ${user.name}` : ""}!
+      <h1 className="text-3xl font-bold mb-2">
+        {user.name ? t("welcomeUser", { name: user.name }) : t("welcome")}
       </h1>
-      <p className="text-gray-600 mb-8">
-        This is your authenticated home screen. Customize it for your POC.
+      <p className="text-muted mb-8">
+        {t("subtitle")}
       </p>
 
-      <div className="bg-gray-50 rounded-lg p-6 space-y-3">
-        <h2 className="text-lg font-semibold text-gray-900">Your Profile</h2>
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <span className="text-gray-500">Email</span>
-          <span className="text-gray-900">{user.email}</span>
-          <span className="text-gray-500">Name</span>
-          <span className="text-gray-900">{user.name || "—"}</span>
-          <span className="text-gray-500">User ID</span>
-          <span className="text-gray-900 font-mono text-xs">{user.id}</span>
-        </div>
+      <div className="bg-card border border-border rounded-lg p-6 space-y-3">
+        <h2 className="text-lg font-semibold">{t("profile")}</h2>
+        <dl className="grid grid-cols-[100px_1fr] gap-2 text-sm">
+          <dt className="text-muted">{t("email")}</dt>
+          <dd>{user.email}</dd>
+          <dt className="text-muted">{t("name")}</dt>
+          <dd>{user.name || "—"}</dd>
+          <dt className="text-muted">{t("userId")}</dt>
+          <dd className="font-mono text-xs break-all">{user.id}</dd>
+        </dl>
       </div>
     </div>
   );

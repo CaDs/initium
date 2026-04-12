@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "title": "Initium",
+    "description": "次の素晴らしいアイデアはここから始まります。"
+  },
+  "nav": {
+    "brand": "Initium",
+    "dashboard": "ダッシュボード",
+    "logout": "ログアウト",
+    "signIn": "ログイン"
+  },
+  "landing": {
+    "title": "Initiumへようこそ",
+    "subtitle": "次の素晴らしいアイデアはここから始まります。迅速なプロトタイピングのための、モダンなフルスタックスターターテンプレート。",
+    "cta": "はじめる"
+  },
+  "login": {
+    "title": "ログイン",
+    "subtitle": "パスワード不要。",
+    "divider": "または",
+    "google": "Googleでログイン",
+    "magicLink": {
+      "placeholder": "メールアドレスを入力",
+      "submit": "マジックリンクを送信",
+      "sending": "送信中...",
+      "sent": "メールを確認してください！",
+      "sentDetail": "マジックリンクが受信トレイに送信されました。"
+    }
+  },
+  "home": {
+    "welcome": "おかえりなさい",
+    "welcomeUser": "おかえりなさい、{name}さん！",
+    "subtitle": "認証済みのホーム画面です。POCに合わせてカスタマイズしてください。",
+    "profile": "プロフィール",
+    "email": "メール",
+    "name": "名前",
+    "userId": "ユーザーID"
+  },
+  "devBanner": {
+    "message": "開発モード — dev@initium.localとしてログイン中"
+  },
+  "theme": {
+    "light": "ライト",
+    "dark": "ダーク",
+    "system": "システム"
+  },
+  "a11y": {
+    "skipToMain": "メインコンテンツへスキップ",
+    "mainNav": "メインナビゲーション",
+    "googleIcon": "Googleロゴ",
+    "loading": "読み込み中"
+  }
+}

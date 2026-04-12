@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { requestMagicLink } from "@/actions/auth";
 
 export default function MagicLinkForm() {
+  const t = useTranslations("login.magicLink");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "sent" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -16,7 +18,7 @@ export default function MagicLinkForm() {
 
     if (result.ok) {
       setStatus("sent");
-      setMessage("Check your email for the magic link!");
+      setMessage(t("sent"));
     } else {
       setStatus("error");
       setMessage(result.message);
@@ -25,32 +27,47 @@ export default function MagicLinkForm() {
 
   if (status === "sent") {
     return (
-      <div className="text-center p-4 bg-green-50 rounded-lg">
-        <p className="text-green-700 font-medium">{message}</p>
-        <p className="text-green-600 text-sm mt-1">Check your inbox (or Mailpit at localhost:8025)</p>
+      <div
+        className="text-center p-4 bg-success-bg rounded-lg"
+        role="status"
+        aria-live="polite"
+      >
+        <p className="text-success font-medium">{t("sent")}</p>
+        <p className="text-success/80 text-sm mt-1">{t("sentDetail")}</p>
       </div>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="Enter your email"
-        required
-        className="w-full border border-gray-300 rounded-lg px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900"
-      />
+      <div>
+        <label htmlFor="magic-link-email" className="sr-only">
+          {t("placeholder")}
+        </label>
+        <input
+          id="magic-link-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder={t("placeholder")}
+          required
+          aria-describedby={status === "error" ? "magic-link-error" : undefined}
+          aria-invalid={status === "error"}
+          className="w-full border border-border bg-card rounded-lg px-4 py-3 placeholder-muted focus:outline-none focus:ring-2 focus:ring-accent"
+        />
+      </div>
       <button
         type="submit"
         disabled={status === "loading"}
-        className="w-full bg-gray-900 text-white rounded-lg px-4 py-3 font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+        aria-busy={status === "loading"}
+        className="w-full bg-accent text-accent-foreground rounded-lg px-4 py-3 font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
       >
-        {status === "loading" ? "Sending..." : "Send Magic Link"}
+        {status === "loading" ? t("sending") : t("submit")}
       </button>
       {status === "error" && (
-        <p className="text-red-600 text-sm">{message}</p>
+        <p id="magic-link-error" className="text-error text-sm" role="alert">
+          {message}
+        </p>
       )}
     </form>
   );

@@ -41,6 +41,33 @@ middleware.ts         # Cookie-existence auth guard with explicit route matcher
 3. `middleware.ts` checks cookie exists → allows through
 4. Server Component in `home/page.tsx` calls `/auth/me` → if invalid, redirect to `/login`
 
+## i18n
+
+Uses `next-intl`. Translations in `messages/{en,es,ja}.json`.
+
+- Server Components: `useTranslations('namespace')` (from `next-intl`)
+- Client Components: `useTranslations('namespace')` (from `next-intl`, works via `NextIntlClientProvider`)
+- Locale stored in `locale` cookie, switched via `LocaleSwitcher` component
+- Add new keys to ALL three locale files before using
+
+## Theme
+
+Three modes via CSS class on `<html>`: no class (system), `.dark` (dark), `data-theme="light"` (forced light).
+
+- Use semantic Tailwind colors: `bg-background`, `text-foreground`, `bg-card`, `text-muted`, `border-border`, `bg-accent`, `text-accent-foreground`
+- Never use hardcoded Tailwind grays (`text-gray-600`). Use `text-muted` instead.
+- Theme persisted in `localStorage`, applied before hydration via inline script in `layout.tsx`
+
+## Accessibility
+
+- Skip-to-main link in layout
+- `aria-label` on all buttons and links without visible text
+- `aria-live="polite"` on dynamic status messages (success/error)
+- `aria-invalid` + `aria-describedby` on form inputs with errors
+- `role="status"` on dev mode banner
+- `<label>` associated with form inputs (visible or `sr-only`)
+- Visible focus indicators via `:focus-visible` in `globals.css`
+
 ## Gotchas
 
 - `middleware.ts` fast-path may briefly show page shell before Server Component redirect fires. Server Components that fetch user data must treat failed `/auth/me` as a redirect, not an error boundary.

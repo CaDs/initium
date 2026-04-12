@@ -48,6 +48,28 @@ make mobile-gen   # Required after DTO changes (build_runner)
 3. Update `web/src/lib/schemas.ts` (Zod)
 4. Update `mobile/lib/data/remote/dto/` + run `make mobile-gen`
 
+## Internationalization (i18n)
+
+Supported locales: **en**, **es**, **ja**. All user-facing strings must be localized.
+
+- **Web**: `next-intl` — translations in `web/messages/{en,es,ja}.json`. Use `useTranslations('namespace')` in components.
+- **Mobile**: Flutter `intl` + ARB files — translations in `mobile/lib/l10n/app_{en,es,ja}.arb`. Run `flutter gen-l10n` after changes. Use `AppLocalizations.of(context)!`.
+- **Backend**: API responses return data (not UI strings). The backend does NOT localize — clients handle display. If a future feature needs server-side localization (e.g., email templates), use Go `embed` with per-locale template directories.
+
+When adding new UI text: add the key to ALL locale files (en, es, ja) before using it.
+
+## Theme Support
+
+Three modes: **light**, **dark**, **system default**.
+
+- **Web**: CSS variables in `globals.css` swap via `.dark` class. Tailwind uses semantic color names (`bg-card`, `text-muted`, `border-border`). Theme toggle persisted in `localStorage`.
+- **Mobile**: `ThemeData` with `ColorScheme.fromSeed()` for both `theme` and `darkTheme`. `ThemeMode.system` by default. Use `Theme.of(context).colorScheme` — never hardcode colors.
+
+## Accessibility
+
+- **Web**: Skip-to-main link, `aria-label` on all interactive elements, `aria-live` on dynamic content, `role` attributes, visible focus indicators via `:focus-visible`, semantic HTML (`<nav>`, `<main>`, `<dl>`), form labels via `<label htmlFor>`.
+- **Mobile**: `Semantics` widgets on interactive elements, `semanticLabel` on icons/images, `tooltip` on `IconButton`, `autofillHints` on text fields, `liveRegion` on status messages.
+
 ## Conventions
 
 - Conventional Commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`

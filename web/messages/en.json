@@ -1,0 +1,53 @@
+{
+  "meta": {
+    "title": "Initium",
+    "description": "Your next great idea starts here."
+  },
+  "nav": {
+    "brand": "Initium",
+    "dashboard": "Dashboard",
+    "logout": "Logout",
+    "signIn": "Sign In"
+  },
+  "landing": {
+    "title": "Welcome to Initium",
+    "subtitle": "Your next great idea starts here. A modern, full-stack starter template ready for rapid prototyping.",
+    "cta": "Get Started"
+  },
+  "login": {
+    "title": "Sign In",
+    "subtitle": "No passwords needed.",
+    "divider": "or",
+    "google": "Sign in with Google",
+    "magicLink": {
+      "placeholder": "Enter your email",
+      "submit": "Send Magic Link",
+      "sending": "Sending...",
+      "sent": "Check your email!",
+      "sentDetail": "A magic link has been sent to your inbox."
+    }
+  },
+  "home": {
+    "welcome": "Welcome back",
+    "welcomeUser": "Welcome back, {name}!",
+    "subtitle": "This is your authenticated home screen. Customize it for your POC.",
+    "profile": "Your Profile",
+    "email": "Email",
+    "name": "Name",
+    "userId": "User ID"
+  },
+  "devBanner": {
+    "message": "Dev Mode — Logged in as dev@initium.local"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "a11y": {
+    "skipToMain": "Skip to main content",
+    "mainNav": "Main navigation",
+    "googleIcon": "Google logo",
+    "loading": "Loading"
+  }
+}

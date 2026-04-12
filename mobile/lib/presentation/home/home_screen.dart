@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../shared/dev_mode_banner.dart';
@@ -10,20 +11,30 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     if (authState is! AuthAuthenticated) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        body: Center(
+          child: Semantics(
+            label: 'Loading',
+            child: const CircularProgressIndicator(),
+          ),
+        ),
+      );
     }
 
     final user = authState.user;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Initium'),
+        title: Text(l10n.appName),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => ref.read(authProvider.notifier).logout(),
+            tooltip: l10n.logout,
           ),
         ],
       ),
@@ -37,13 +48,19 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Welcome back${user.name.isNotEmpty ? ", ${user.name}" : ""}!',
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    user.name.isNotEmpty
+                        ? l10n.homeWelcomeUser(user.name)
+                        : l10n.homeWelcome,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'This is your authenticated home screen.',
-                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                    l10n.homeSubtitle,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   Card(
@@ -52,14 +69,17 @@ class HomeScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Your Profile',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          Text(
+                            l10n.homeProfile,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           const SizedBox(height: 16),
-                          _profileRow('Email', user.email),
-                          _profileRow('Name', user.name.isNotEmpty ? user.name : '—'),
-                          _profileRow('User ID', user.id),
+                          _profileRow(context, l10n.labelEmail, user.email),
+                          _profileRow(context, l10n.labelName,
+                              user.name.isNotEmpty ? user.name : '—'),
+                          _profileRow(context, l10n.labelUserId, user.id),
                         ],
                       ),
                     ),
@@ -73,16 +93,25 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _profileRow(String label, String value) {
+  Widget _profileRow(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: TextStyle(color: Colors.grey[600])),
+            child: Text(
+              label,
+              style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ),
-          Expanded(child: Text(value)),
+          Expanded(
+            child: Semantics(
+              label: '$label: $value',
+              child: Text(value),
+            ),
+          ),
         ],
       ),
     );

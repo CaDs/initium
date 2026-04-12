@@ -30,6 +30,32 @@ lib/presentation/     # Screens, widgets, go_router
 - Mappers split per aggregate: `auth_mapper.dart`, `user_mapper.dart` — no single `dto_mapper.dart`
 - Riverpod triple must be version-matched in `pubspec.yaml` (flutter_riverpod, riverpod_annotation, riverpod_generator)
 
+## i18n
+
+Uses Flutter `intl` with ARB files. Translations in `lib/l10n/app_{en,es,ja}.arb`.
+
+- Access via `AppLocalizations.of(context)!` (import from `package:mobile/l10n/app_localizations.dart`)
+- Run `flutter gen-l10n` after changing ARB files
+- Add new keys to ALL three ARB files before using
+- Parameterized messages: use `{name}` syntax with `@key` metadata in ARB
+
+## Theme
+
+Material 3 with `ColorScheme.fromSeed()`. Three modes: light, dark, system.
+
+- `main.dart` defines both `theme` (light) and `darkTheme` (dark), `themeMode: ThemeMode.system`
+- Use `Theme.of(context).colorScheme` for colors — never hardcode `Colors.grey[600]`
+- Use `theme.textTheme` for typography — never hardcode `TextStyle(fontSize: ...)`
+
+## Accessibility
+
+- `Semantics` widgets on interactive elements and status messages
+- `semanticLabel` on icons and images
+- `tooltip` on all `IconButton`s
+- `autofillHints` on text fields (e.g., `AutofillHints.email`)
+- `liveRegion: true` in `Semantics` for dynamic status updates
+- Pair label + value in `Semantics(label: '$label: $value')` for profile rows
+
 ## Auth
 
 - Google Sign-In via `google_sign_in` package → ID token → `POST /auth/mobile/google`

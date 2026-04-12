@@ -1,0 +1,35 @@
+{
+  "@@locale": "es",
+  "appName": "Initium",
+  "landingTitle": "Bienvenido a Initium",
+  "landingSubtitle": "Tu próxima gran idea comienza aquí.",
+  "landingCta": "Comenzar",
+  "loginTitle": "Iniciar sesión",
+  "loginSubtitle": "Sin contraseñas.",
+  "loginDivider": "o",
+  "loginGoogle": "Iniciar sesión con Google",
+  "loginGoogleSetup": "Google Sign-In: configura google-services.json primero",
+  "loginMagicPlaceholder": "Ingresa tu correo electrónico",
+  "loginMagicSubmit": "Enviar enlace mágico",
+  "loginMagicSending": "Enviando...",
+  "loginMagicSent": "¡Revisa tu correo!",
+  "loginMagicSentDetail": "Se ha enviado un enlace mágico.",
+  "homeWelcome": "¡Bienvenido de nuevo!",
+  "homeWelcomeUser": "¡Bienvenido de nuevo, {name}!",
+  "@homeWelcomeUser": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "homeSubtitle": "Esta es tu pantalla de inicio autenticada.",
+  "homeProfile": "Tu Perfil",
+  "labelEmail": "Correo",
+  "labelName": "Nombre",
+  "labelUserId": "ID de Usuario",
+  "devBanner": "Modo Dev — Sesión como dev@initium.local",
+  "logout": "Cerrar sesión",
+  "dashboard": "Panel",
+  "themeLight": "Claro",
+  "themeDark": "Oscuro",
+  "themeSystem": "Sistema"
+}

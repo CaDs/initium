@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/auth_provider.dart';
 import 'widgets/google_sign_in_button.dart';
@@ -11,6 +12,8 @@ class LoginScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Scaffold(
       body: Center(
@@ -19,26 +22,33 @@ class LoginScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'Sign In',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              Text(
+                l10n.loginTitle,
+                style: theme.textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
-                'No passwords needed.',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                l10n.loginSubtitle,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 48),
               const GoogleSignInButton(),
               const SizedBox(height: 24),
               Row(
                 children: [
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text('or', style: TextStyle(color: Colors.grey[500])),
+                    child: Text(
+                      l10n.loginDivider,
+                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+                    ),
                   ),
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider(color: theme.colorScheme.outlineVariant)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -48,7 +58,8 @@ class LoginScreen extends ConsumerWidget {
                   padding: const EdgeInsets.only(top: 16),
                   child: Text(
                     authState.message,
-                    style: const TextStyle(color: Colors.red),
+                    style: TextStyle(color: theme.colorScheme.error),
+                    semanticsLabel: authState.message,
                   ),
                 ),
             ],

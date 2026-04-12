@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import '../../../providers/api_provider.dart';
 
 class MagicLinkForm extends ConsumerStatefulWidget {
@@ -37,38 +38,54 @@ class _MagicLinkFormState extends ConsumerState<MagicLinkForm> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     if (_sent) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.green[50],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Text(
-              'Check your email!',
-              style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'A magic link has been sent.',
-              style: TextStyle(color: Colors.green[600], fontSize: 13),
-            ),
-          ],
+      return Semantics(
+        liveRegion: true,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              Text(
+                l10n.loginMagicSent,
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.loginMagicSentDetail,
+                style: TextStyle(
+                  color: theme.colorScheme.onPrimaryContainer.withValues(alpha: 0.8),
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     return Column(
       children: [
-        TextField(
-          controller: _emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: InputDecoration(
-            hintText: 'Enter your email',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        Semantics(
+          label: l10n.loginMagicPlaceholder,
+          child: TextField(
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const [AutofillHints.email],
+            decoration: InputDecoration(
+              hintText: l10n.loginMagicPlaceholder,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -78,12 +95,15 @@ class _MagicLinkFormState extends ConsumerState<MagicLinkForm> {
             minimumSize: const Size(double.infinity, 52),
           ),
           child: _loading
-              ? const SizedBox(
+              ? SizedBox(
                   height: 20,
                   width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: theme.colorScheme.onPrimary,
+                  ),
                 )
-              : const Text('Send Magic Link', style: TextStyle(fontSize: 16)),
+              : Text(l10n.loginMagicSubmit, style: const TextStyle(fontSize: 16)),
         ),
       ],
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 import '../../providers/api_provider.dart';
 
 class DevModeBanner extends StatelessWidget {
@@ -8,14 +9,23 @@ class DevModeBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!isDevBypassAuth) return const SizedBox.shrink();
 
-    return Container(
-      width: double.infinity,
-      color: Colors.amber[100],
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Text(
-        'Dev Mode: Logged in as dev@initium.local',
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 12, color: Colors.amber[900]),
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Semantics(
+      label: l10n.devBanner,
+      child: Container(
+        width: double.infinity,
+        color: theme.colorScheme.tertiaryContainer,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Text(
+          l10n.devBanner,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onTertiaryContainer,
+          ),
+        ),
       ),
     );
   }

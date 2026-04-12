@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile/l10n/app_localizations.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: Center(
         child: Padding(
@@ -13,15 +17,20 @@ class LandingScreen extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                'Welcome to Initium',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+              Text(
+                l10n.landingTitle,
+                style: theme.textTheme.headlineLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
+                semanticsLabel: l10n.landingTitle,
               ),
               const SizedBox(height: 16),
               Text(
-                'Your next great idea starts here.',
-                style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                l10n.landingSubtitle,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
@@ -30,7 +39,7 @@ class LandingScreen extends StatelessWidget {
                 style: FilledButton.styleFrom(
                   minimumSize: const Size(200, 52),
                 ),
-                child: const Text('Get Started', style: TextStyle(fontSize: 16)),
+                child: Text(l10n.landingCta, style: const TextStyle(fontSize: 16)),
               ),
             ],
           ),
