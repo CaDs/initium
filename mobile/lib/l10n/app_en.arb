@@ -31,5 +31,9 @@
   "dashboard": "Dashboard",
   "themeLight": "Light",
   "themeDark": "Dark",
-  "themeSystem": "System"
+  "themeSystem": "System",
+  "authGoogleLoginFailed": "Google login failed",
+  "authMagicLinkFailed": "Magic link verification failed",
+  "verifyFailed": "Verification failed",
+  "verifyExpiredOrUsed": "The link may have expired or already been used."
 }

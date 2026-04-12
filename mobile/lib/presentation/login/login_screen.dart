@@ -57,9 +57,9 @@ class LoginScreen extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.only(top: 16),
                   child: Text(
-                    authState.message,
+                    _localizeError(authState.message, l10n),
                     style: TextStyle(color: theme.colorScheme.error),
-                    semanticsLabel: authState.message,
+                    semanticsLabel: _localizeError(authState.message, l10n),
                   ),
                 ),
             ],
@@ -67,5 +67,13 @@ class LoginScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _localizeError(String code, AppLocalizations l10n) {
+    return switch (code) {
+      'google_login_failed' => l10n.authGoogleLoginFailed,
+      'magic_link_failed' => l10n.authMagicLinkFailed,
+      _ => code,
+    };
   }
 }

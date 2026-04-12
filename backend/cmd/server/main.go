@@ -108,6 +108,7 @@ func main() {
 			r.Get("/verify", authHandler.VerifyMagicLink)
 			r.Post("/refresh", authHandler.RefreshTokens)
 			r.Post("/mobile/google", mobileAuthHandler.GoogleIDToken)
+			r.Post("/mobile/verify", mobileAuthHandler.VerifyMagicLink)
 		})
 
 		// Protected routes

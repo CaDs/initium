@@ -1,8 +1,14 @@
 import { cookies } from "next/headers";
+import {
+  COOKIE_SECURE,
+  ACCESS_TOKEN_MAX_AGE,
+  REFRESH_TOKEN_MAX_AGE,
+  REFRESH_TOKEN_PATH,
+} from "./cookie-config";
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: COOKIE_SECURE,
   sameSite: "lax" as const,
   path: "/",
 };
@@ -12,13 +18,13 @@ export async function setTokenCookies(accessToken: string, refreshToken: string)
 
   cookieStore.set("access_token", accessToken, {
     ...COOKIE_OPTIONS,
-    maxAge: 900, // 15 min
+    maxAge: ACCESS_TOKEN_MAX_AGE,
   });
 
   cookieStore.set("refresh_token", refreshToken, {
     ...COOKIE_OPTIONS,
-    path: "/api/auth",
-    maxAge: 604800, // 7 days
+    path: REFRESH_TOKEN_PATH,
+    maxAge: REFRESH_TOKEN_MAX_AGE,
   });
 }
 

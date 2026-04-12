@@ -38,9 +38,9 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<(Session?, DomainError?)> verifyMagicLink(String token) async {
     try {
-      final response = await _client.dio.get(
-        '/api/auth/verify',
-        queryParameters: {'token': token},
+      final response = await _client.dio.post(
+        '/api/auth/mobile/verify',
+        data: {'token': token},
       );
       final dto = AuthResponseDto.fromJson(response.data);
       return (dto.toDomain(), null);

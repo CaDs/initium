@@ -31,5 +31,9 @@
   "dashboard": "Panel",
   "themeLight": "Claro",
   "themeDark": "Oscuro",
-  "themeSystem": "Sistema"
+  "themeSystem": "Sistema",
+  "authGoogleLoginFailed": "Error al iniciar sesión con Google",
+  "authMagicLinkFailed": "Error al verificar el enlace mágico",
+  "verifyFailed": "Verificación fallida",
+  "verifyExpiredOrUsed": "El enlace puede haber expirado o ya fue utilizado."
 }

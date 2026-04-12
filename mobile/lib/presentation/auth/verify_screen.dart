@@ -57,12 +57,12 @@ class _VerifyScreenState extends ConsumerState<VerifyScreen> {
                 Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
                 const SizedBox(height: 16),
                 Text(
-                  'Verification failed',
+                  l10n.verifyFailed,
                   style: theme.textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'The link may have expired or already been used.',
+                  l10n.verifyExpiredOrUsed,
                   style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
                   textAlign: TextAlign.center,
                 ),

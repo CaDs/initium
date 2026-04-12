@@ -56,7 +56,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user != null) {
       state = AuthAuthenticated(user);
     } else {
-      state = const AuthError('Google login failed');
+      state = const AuthError('google_login_failed');
     }
   }
 
@@ -70,7 +70,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user != null) {
       state = AuthAuthenticated(user);
     } else {
-      state = const AuthError('Magic link verification failed');
+      state = const AuthError('magic_link_failed');
     }
   }
 

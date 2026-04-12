@@ -31,5 +31,9 @@
   "dashboard": "ダッシュボード",
   "themeLight": "ライト",
   "themeDark": "ダーク",
-  "themeSystem": "システム"
+  "themeSystem": "システム",
+  "authGoogleLoginFailed": "Googleログインに失敗しました",
+  "authMagicLinkFailed": "マジックリンクの確認に失敗しました",
+  "verifyFailed": "確認に失敗しました",
+  "verifyExpiredOrUsed": "リンクの有効期限が切れたか、既に使用された可能性があります。"
 }

@@ -40,6 +40,7 @@ func (h *AuthHandler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   300,
 		HttpOnly: true,
+		Secure:   h.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 	http.Redirect(w, r, h.verifier.AuthCodeURL(state), http.StatusTemporaryRedirect)

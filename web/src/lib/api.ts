@@ -22,41 +22,11 @@ export async function apiFetch<T>(
     headers["Cookie"] = `access_token=${accessToken}`;
   }
 
-  let res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers,
     cache: "no-store",
   });
-
-  // Token refresh on 401
-  if (res.status === 401) {
-    const refreshToken = cookieStore.get("refresh_token")?.value;
-    if (refreshToken) {
-      const refreshRes = await fetch(`${API_URL}/api/auth/refresh`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Cookie: `refresh_token=${refreshToken}`,
-        },
-        cache: "no-store",
-      });
-
-      if (refreshRes.ok) {
-        const tokens = await refreshRes.json();
-        // Note: cookies can't be set from Server Components.
-        // The refresh endpoint sets cookies via Set-Cookie headers on the backend side.
-        const newHeaders = { ...headers };
-        newHeaders["Authorization"] = `Bearer ${tokens.access_token}`;
-        newHeaders["Cookie"] = `access_token=${tokens.access_token}`;
-
-        res = await fetch(`${API_URL}${path}`, {
-          ...options,
-          headers: newHeaders,
-          cache: "no-store",
-        });
-      }
-    }
-  }
 
   if (!res.ok) {
     const error: ApiError = await res.json().catch(() => ({

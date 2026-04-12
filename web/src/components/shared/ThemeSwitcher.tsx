@@ -5,15 +5,10 @@ import { useEffect, useState } from "react";
 type Theme = "light" | "dark" | "system";
 
 export default function ThemeSwitcher() {
-  const [theme, setTheme] = useState<Theme>("system");
-
-  useEffect(() => {
-    const saved = localStorage.getItem("theme") as Theme | null;
-    if (saved) {
-      setTheme(saved);
-      applyTheme(saved);
-    }
-  }, []);
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "system";
+    return (localStorage.getItem("theme") as Theme) ?? "system";
+  });
 
   function applyTheme(t: Theme) {
     const root = document.documentElement;
@@ -31,6 +26,10 @@ export default function ThemeSwitcher() {
       root.setAttribute("data-theme", "light");
     }
   }
+
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
 
   function switchTheme(t: Theme) {
     setTheme(t);
