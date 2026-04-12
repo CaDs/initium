@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
@@ -6,6 +7,7 @@ import '../../providers/api_provider.dart';
 import '../landing/landing_screen.dart';
 import '../login/login_screen.dart';
 import '../home/home_screen.dart';
+import '../auth/verify_screen.dart';
 
 /// Bridges Riverpod auth state changes to GoRouter's refreshListenable.
 class _AuthNotifier extends ChangeNotifier {
@@ -26,8 +28,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoading = authState is AuthLoading;
       final isOnLogin = state.matchedLocation == '/login';
       final isOnHome = state.matchedLocation == '/home';
+      final isOnVerify = state.matchedLocation == '/auth/verify';
 
       if (isLoading) return null;
+      if (isOnVerify) return null; // Let verify screen handle auth
 
       if (isAuthenticated && isOnLogin) return '/home';
       if (!isAuthenticated && isOnHome) return '/login';
@@ -46,6 +50,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/home',
         builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/auth/verify',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return VerifyScreen(token: token);
+        },
       ),
     ],
   );

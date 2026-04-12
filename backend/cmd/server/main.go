@@ -56,7 +56,7 @@ func main() {
 
 	oauthVerifier := google.NewOAuthVerifier(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 
-	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.AppURL)
+	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.AppURL, cfg.AppDeepScheme)
 	if err != nil {
 		slog.Error("initializing email sender", "error", err)
 		os.Exit(1)

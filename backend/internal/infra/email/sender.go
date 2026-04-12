@@ -15,37 +15,45 @@ var templateFS embed.FS
 
 // SMTPSender implements domain.EmailSender via SMTP.
 type SMTPSender struct {
-	host    string
-	port    int
-	appURL  string
-	from    string
-	tmpl    *template.Template
+	host          string
+	port          int
+	appURL        string
+	appDeepScheme string
+	from          string
+	tmpl          *template.Template
 }
 
 // NewSMTPSender creates a new email sender.
-func NewSMTPSender(host string, port int, appURL string) (*SMTPSender, error) {
+func NewSMTPSender(host string, port int, appURL string, appDeepScheme string) (*SMTPSender, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parsing email templates: %w", err)
 	}
 
 	return &SMTPSender{
-		host:   host,
-		port:   port,
-		appURL: appURL,
-		from:   "noreply@initium.local",
-		tmpl:   tmpl,
+		host:          host,
+		port:          port,
+		appURL:        appURL,
+		appDeepScheme: appDeepScheme,
+		from:          "noreply@initium.local",
+		tmpl:          tmpl,
 	}, nil
 }
 
-// SendMagicLink sends a magic link email.
+// SendMagicLink sends a magic link email with both web and app deep links.
 func (s *SMTPSender) SendMagicLink(ctx context.Context, to string, token string) error {
 	link := fmt.Sprintf("%s/api/auth/verify?token=%s", s.appURL, token)
 
-	var body bytes.Buffer
-	if err := s.tmpl.ExecuteTemplate(&body, "magic_link.html", map[string]string{
+	data := map[string]string{
 		"Link": link,
-	}); err != nil {
+	}
+
+	if s.appDeepScheme != "" {
+		data["AppLink"] = fmt.Sprintf("%s://auth/verify?token=%s", s.appDeepScheme, token)
+	}
+
+	var body bytes.Buffer
+	if err := s.tmpl.ExecuteTemplate(&body, "magic_link.html", data); err != nil {
 		return fmt.Errorf("rendering magic link template: %w", err)
 	}
 
@@ -56,9 +64,9 @@ func (s *SMTPSender) SendMagicLink(ctx context.Context, to string, token string)
 
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
 	if err := smtp.SendMail(addr, nil, s.from, []string{to}, []byte(msg)); err != nil {
-		return fmt.Errorf("sending email to %s: %w", to, err)
+		return fmt.Errorf("sending email: %w", err)
 	}
 
-	slog.Info("magic link email sent", "to", to)
+	slog.Info("magic link email sent")
 	return nil
 }

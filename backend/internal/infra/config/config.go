@@ -26,9 +26,9 @@ type Config struct {
 	JWTPrivateKeyPath string
 	JWTPublicKeyPath  string
 
-	SMTPHost string
-	SMTPPort int
-
+	SMTPHost      string
+	SMTPPort      int
+	AppDeepScheme string
 }
 
 // Load reads configuration from environment variables and validates required fields.
@@ -50,6 +50,7 @@ func Load() (*Config, error) {
 		JWTPublicKeyPath:   envOrDefault("JWT_PUBLIC_KEY_PATH", "jwt_public.pem"),
 		SMTPHost:           envOrDefault("SMTP_HOST", "localhost"),
 		SMTPPort:           envIntOrDefault("SMTP_PORT", 1025),
+		AppDeepScheme:      envOrDefault("APP_DEEP_SCHEME", "initium"),
 	}
 
 	if cfg.DevBypassAuth && cfg.AppEnv != "development" {
