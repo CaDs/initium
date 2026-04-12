@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api";
+import { userSchema } from "@/lib/schemas";
 import type { User } from "@/lib/types";
 
 export default async function HomePage() {
-  const result = await apiFetch<User>("/api/me");
+  const result = await apiFetch<User>("/api/me", {}, userSchema);
 
   if (!result.ok) {
     redirect("/login");

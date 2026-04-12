@@ -1,11 +1,13 @@
 import { cookies } from "next/headers";
+import type { z } from "zod";
 import type { ApiResult, ApiError } from "./types";
 
 const API_URL = process.env.API_URL || "http://localhost:8000";
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  schema?: z.ZodType<T>
 ): Promise<ApiResult<T>> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
@@ -41,12 +43,12 @@ export async function apiFetch<T>(
 
       if (refreshRes.ok) {
         const tokens = await refreshRes.json();
-        // Set new cookies for subsequent requests
+        // Note: cookies can't be set from Server Components.
+        // The refresh endpoint sets cookies via Set-Cookie headers on the backend side.
         const newHeaders = { ...headers };
         newHeaders["Authorization"] = `Bearer ${tokens.access_token}`;
         newHeaders["Cookie"] = `access_token=${tokens.access_token}`;
 
-        // Retry original request with new token
         res = await fetch(`${API_URL}${path}`, {
           ...options,
           headers: newHeaders,
@@ -65,5 +67,20 @@ export async function apiFetch<T>(
   }
 
   const data = await res.json();
+
+  if (schema) {
+    const parsed = schema.safeParse(data);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `API response validation failed: ${parsed.error.message}`,
+        },
+      };
+    }
+    return { ok: true, data: parsed.data };
+  }
+
   return { ok: true, data: data as T };
 }
