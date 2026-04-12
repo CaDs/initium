@@ -14,4 +14,5 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrEmailRequired      = errors.New("email is required")
 	ErrRateLimited        = errors.New("rate limited")
+	ErrInvalidInput       = errors.New("invalid input")
 )

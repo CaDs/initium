@@ -1,15 +1,16 @@
 package main
 
 import (
-	"log"
 	"log/slog"
 	"os"
+
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
-	"time"
+	"github.com/joho/godotenv"
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
@@ -26,32 +27,39 @@ import (
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
+	_ = godotenv.Load() // ignore error — .env is optional (e.g., in Docker)
+
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("loading config: %v", err)
+		slog.Error("loading config", "error", err)
+		os.Exit(1)
 	}
 
 	// Database
 	db, err := database.NewPostgresDB(cfg.DatabaseDSN())
 	if err != nil {
-		log.Fatalf("connecting to database: %v", err)
+		slog.Error("connecting to database", "error", err)
+		os.Exit(1)
 	}
 
 	if err := database.RunMigrations(cfg.DatabaseURL(), "file://migrations"); err != nil {
-		log.Fatalf("running migrations: %v", err)
+		slog.Error("running migrations", "error", err)
+		os.Exit(1)
 	}
 
 	// Infrastructure
 	tokenGen, err := token.NewJWTGenerator(cfg.JWTPrivateKeyPath, cfg.JWTPublicKeyPath)
 	if err != nil {
-		log.Fatalf("initializing JWT generator: %v", err)
+		slog.Error("initializing JWT generator", "error", err)
+		os.Exit(1)
 	}
 
 	oauthVerifier := google.NewOAuthVerifier(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 
 	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.AppURL)
 	if err != nil {
-		log.Fatalf("initializing email sender: %v", err)
+		slog.Error("initializing email sender", "error", err)
+		os.Exit(1)
 	}
 
 	// Repositories
@@ -63,7 +71,8 @@ func main() {
 	userService := service.NewUserService(userRepo)
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(authService, oauthVerifier, cfg.AppURL)
+	secureCookies := cfg.AppEnv != "development"
+	authHandler := handler.NewAuthHandler(authService, oauthVerifier, cfg.AppURL, secureCookies)
 	mobileAuthHandler := handler.NewMobileAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
 
@@ -118,6 +127,7 @@ func main() {
 	)
 
 	if err := infra.ServeHTTP(r, cfg.HTTPPort); err != nil {
-		log.Fatalf("server error: %v", err)
+		slog.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }

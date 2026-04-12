@@ -91,8 +91,30 @@ web-lint: ## Lint web code
 
 # --- Mobile ---
 
-mobile-dev: ## Run Flutter app with env config
+mobile-dev: _ensure-simulator ## Run Flutter app with env config
 	cd $(MOBILE_DIR) && flutter run --dart-define-from-file=.env
+
+_ensure-simulator:
+	@if ! xcrun simctl list devices booted 2>/dev/null | grep -q "Booted"; then \
+		echo "No simulator running. Available devices:"; \
+		echo ""; \
+		xcrun simctl list devices available | grep -E "iPhone|iPad" | cat -n; \
+		echo ""; \
+		read -p "Enter number to boot (or press Enter for first iPhone): " choice; \
+		if [ -z "$$choice" ]; then \
+			UDID=$$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[A-F0-9-]{36}'); \
+		else \
+			UDID=$$(xcrun simctl list devices available | grep -E "iPhone|iPad" | sed -n "$${choice}p" | grep -oE '[A-F0-9-]{36}'); \
+		fi; \
+		if [ -z "$$UDID" ]; then \
+			echo "Invalid selection."; exit 1; \
+		fi; \
+		echo "Booting simulator $$UDID..."; \
+		xcrun simctl boot "$$UDID"; \
+		open -a Simulator; \
+		echo "Waiting for simulator..."; \
+		sleep 5; \
+	fi
 
 mobile-test: ## Run Flutter tests
 	cd $(MOBILE_DIR) && flutter test

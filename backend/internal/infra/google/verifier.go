@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"golang.org/x/oauth2"
 	googleOAuth "golang.org/x/oauth2/google"
@@ -47,7 +48,16 @@ func (v *OAuthVerifier) ExchangeCode(ctx context.Context, code string) (*domain.
 
 // VerifyIDToken verifies a Google ID token (from mobile) and returns the profile.
 func (v *OAuthVerifier) VerifyIDToken(ctx context.Context, idToken string) (*domain.OAuthProfile, error) {
-	resp, err := http.Get("https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		"https://oauth2.googleapis.com/tokeninfo?id_token="+idToken, nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating token verification request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("verifying id token: %w", err)
 	}
@@ -58,10 +68,11 @@ func (v *OAuthVerifier) VerifyIDToken(ctx context.Context, idToken string) (*dom
 	}
 
 	var info struct {
-		Email   string `json:"email"`
-		Name    string `json:"name"`
-		Picture string `json:"picture"`
-		Aud     string `json:"aud"`
+		Email         string `json:"email"`
+		EmailVerified string `json:"email_verified"`
+		Name          string `json:"name"`
+		Picture       string `json:"picture"`
+		Aud           string `json:"aud"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
@@ -69,6 +80,10 @@ func (v *OAuthVerifier) VerifyIDToken(ctx context.Context, idToken string) (*dom
 	}
 
 	if info.Aud != v.config.ClientID {
+		return nil, domain.ErrInvalidOAuthToken
+	}
+
+	if info.EmailVerified != "true" {
 		return nil, domain.ErrInvalidOAuthToken
 	}
 

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -189,6 +190,9 @@ func (s *AuthService) findOrCreateUser(ctx context.Context, email, name, avatarU
 	user, err := s.users.FindByEmail(ctx, email)
 	if err == nil {
 		return user, nil
+	}
+	if !errors.Is(err, domain.ErrUserNotFound) {
+		return nil, fmt.Errorf("looking up user: %w", err)
 	}
 
 	newUser := &domain.User{

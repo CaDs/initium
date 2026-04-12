@@ -37,7 +37,7 @@ final sessionManagerProvider = Provider((ref) {
 });
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref.read(sessionManagerProvider));
+  return AuthNotifier(ref.read(sessionManagerProvider), devBypassAuth: _devBypassAuth);
 });
 
 /// Whether dev bypass auth is enabled (compile-time constant).

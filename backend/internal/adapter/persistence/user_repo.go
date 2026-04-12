@@ -54,10 +54,12 @@ func (r *GormUserRepo) Create(ctx context.Context, user *domain.User) error {
 }
 
 func (r *GormUserRepo) Update(ctx context.Context, user *domain.User) error {
-	m := UserModelFromDomain(user)
-	if err := r.db.WithContext(ctx).Save(m).Error; err != nil {
+	if err := r.db.WithContext(ctx).Model(&UserModel{ID: user.ID}).
+		Updates(map[string]any{
+			"name":       user.Name,
+			"avatar_url": user.AvatarURL,
+		}).Error; err != nil {
 		return fmt.Errorf("updating user: %w", err)
 	}
-	user.UpdatedAt = m.UpdatedAt
 	return nil
 }

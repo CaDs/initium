@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -13,19 +14,25 @@ import (
 
 // AuthHandler handles authentication endpoints.
 type AuthHandler struct {
-	auth     domain.AuthService
-	verifier *google.OAuthVerifier
-	appURL   string
+	auth       domain.AuthService
+	verifier   *google.OAuthVerifier
+	appURL     string
+	secureCookies bool
 }
 
 // NewAuthHandler creates a new AuthHandler.
-func NewAuthHandler(auth domain.AuthService, verifier *google.OAuthVerifier, appURL string) *AuthHandler {
-	return &AuthHandler{auth: auth, verifier: verifier, appURL: appURL}
+func NewAuthHandler(auth domain.AuthService, verifier *google.OAuthVerifier, appURL string, secureCookies bool) *AuthHandler {
+	return &AuthHandler{auth: auth, verifier: verifier, appURL: appURL, secureCookies: secureCookies}
 }
 
 // GoogleRedirect redirects to Google's consent screen.
 func (h *AuthHandler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
-	state := generateState()
+	state, err := generateState()
+	if err != nil {
+		slog.Error("failed to generate oauth state", "error", err)
+		Error(w, r, fmt.Errorf("internal error"))
+		return
+	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -61,8 +68,8 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTokenCookies(w, pair)
-	slog.Info("user logged in via google", "user_id", user.ID, "email", user.Email)
+	h.setTokenCookies(w, pair)
+	slog.Info("user logged in via google", "user_id", user.ID)
 	http.Redirect(w, r, h.appURL+"/home", http.StatusTemporaryRedirect)
 }
 
@@ -100,8 +107,8 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTokenCookies(w, pair)
-	slog.Info("user logged in via magic link", "user_id", user.ID, "email", user.Email)
+	h.setTokenCookies(w, pair)
+	slog.Info("user logged in via magic link", "user_id", user.ID)
 	http.Redirect(w, r, h.appURL+"/home", http.StatusTemporaryRedirect)
 }
 
@@ -132,7 +139,7 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	setTokenCookies(w, pair)
+	h.setTokenCookies(w, pair)
 	JSON(w, r, http.StatusOK, map[string]string{
 		"access_token":  pair.AccessToken,
 		"refresh_token": pair.RefreshToken,
@@ -156,23 +163,23 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	JSON(w, r, http.StatusOK, map[string]string{"message": "logged out"})
 }
 
-func setTokenCookies(w http.ResponseWriter, pair *domain.TokenPair) {
+func (h *AuthHandler) setTokenCookies(w http.ResponseWriter, pair *domain.TokenPair) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "access_token",
 		Value:    pair.AccessToken,
 		Path:     "/",
-		MaxAge:   900, // 15 min
+		MaxAge:   900,
 		HttpOnly: true,
-		Secure:   false, // set true in production
+		Secure:   h.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 	http.SetCookie(w, &http.Cookie{
 		Name:     "refresh_token",
 		Value:    pair.RefreshToken,
 		Path:     "/api/auth",
-		MaxAge:   604800, // 7 days
+		MaxAge:   604800,
 		HttpOnly: true,
-		Secure:   false, // set true in production
+		Secure:   h.secureCookies,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -182,10 +189,12 @@ func clearTokenCookies(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{Name: "refresh_token", Value: "", Path: "/api/auth", MaxAge: -1})
 }
 
-func generateState() string {
+func generateState() (string, error) {
 	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generating oauth state: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // Healthz returns a simple health check.

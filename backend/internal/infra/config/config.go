@@ -29,7 +29,6 @@ type Config struct {
 	SMTPHost string
 	SMTPPort int
 
-	MagicLinkSecret string
 }
 
 // Load reads configuration from environment variables and validates required fields.
@@ -51,7 +50,6 @@ func Load() (*Config, error) {
 		JWTPublicKeyPath:   envOrDefault("JWT_PUBLIC_KEY_PATH", "jwt_public.pem"),
 		SMTPHost:           envOrDefault("SMTP_HOST", "localhost"),
 		SMTPPort:           envIntOrDefault("SMTP_PORT", 1025),
-		MagicLinkSecret:    envOrDefault("MAGIC_LINK_SECRET", "change-me-in-production"),
 	}
 
 	if cfg.DevBypassAuth && cfg.AppEnv != "development" {

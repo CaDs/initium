@@ -28,12 +28,20 @@ class AuthError extends AuthState {
 /// Auth notifier wrapping SessionManager.
 class AuthNotifier extends StateNotifier<AuthState> {
   final SessionManager _sessionManager;
+  final bool _devBypassAuth;
 
-  AuthNotifier(this._sessionManager) : super(const AuthLoading()) {
+  AuthNotifier(this._sessionManager, {bool devBypassAuth = false})
+      : _devBypassAuth = devBypassAuth,
+        super(const AuthLoading()) {
     _init();
   }
 
   Future<void> _init() async {
+    if (_devBypassAuth) {
+      state = AuthAuthenticated(User.stub());
+      return;
+    }
+
     final user = await _sessionManager.restoreSession();
     if (user != null) {
       state = AuthAuthenticated(user);

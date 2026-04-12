@@ -35,7 +35,7 @@ func (h *MobileAuthHandler) GoogleIDToken(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	slog.Info("user logged in via mobile google", "user_id", user.ID, "email", user.Email)
+	slog.Info("user logged in via mobile google", "user_id", user.ID)
 	JSON(w, r, http.StatusOK, map[string]string{
 		"access_token":  pair.AccessToken,
 		"refresh_token": pair.RefreshToken,

@@ -45,7 +45,12 @@ func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		Name string `json:"name"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		Error(w, r, domain.ErrEmailRequired)
+		Error(w, r, domain.ErrInvalidInput)
+		return
+	}
+
+	if len(body.Name) == 0 || len(body.Name) > 100 {
+		Error(w, r, domain.ErrInvalidInput)
 		return
 	}
 

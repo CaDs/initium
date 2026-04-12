@@ -61,6 +61,8 @@ func mapError(err error) (code string, status int) {
 		return "EMAIL_REQUIRED", http.StatusBadRequest
 	case errors.Is(err, domain.ErrRateLimited):
 		return "RATE_LIMITED", http.StatusTooManyRequests
+	case errors.Is(err, domain.ErrInvalidInput):
+		return "INVALID_INPUT", http.StatusBadRequest
 	default:
 		return "INTERNAL_ERROR", http.StatusInternalServerError
 	}
