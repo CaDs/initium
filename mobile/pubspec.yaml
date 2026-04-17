@@ -19,6 +19,11 @@ dependencies:
   flutter_secure_storage: ^9.2.4
   shared_preferences: ^2.3.4
   google_sign_in: ^6.2.2
+  flutter_animate: ^4.5.0
+  flutter_svg: ^2.0.1
+  particle_field: ^1.0.0
+  gap: ^3.0.1
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -28,3 +33,9 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true
+  assets:
+    - assets/illustrations/landing/
+    - assets/illustrations/login/
+    - assets/illustrations/home/
+    - assets/icons/
+    - assets/particles/

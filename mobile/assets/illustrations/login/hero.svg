@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PLACEHOLDER: login hero. Swap with editorial portrait / landscape photo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1200" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="heroGrad" cx="0.5" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#F4D9A4"/>
+      <stop offset="0.55" stop-color="#C98C3F"/>
+      <stop offset="1" stop-color="#8B4513"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1200" fill="url(#heroGrad)"/>
+  <circle cx="540" cy="480" r="200" fill="#F7F3EC" opacity="0.22"/>
+  <circle cx="540" cy="480" r="120" fill="#F7F3EC" opacity="0.35"/>
+</svg>

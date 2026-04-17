@@ -35,5 +35,9 @@
   "authGoogleLoginFailed": "Google login failed",
   "authMagicLinkFailed": "Magic link verification failed",
   "verifyFailed": "Verification failed",
-  "verifyExpiredOrUsed": "The link may have expired or already been used."
+  "verifyExpiredOrUsed": "The link may have expired or already been used.",
+  "landingSwipeHint": "Swipe up to begin",
+  "loginHeroCaption": "Find your way in.",
+  "verifyCelebration": "Welcome in.",
+  "verifyRetry": "Try again"
 }

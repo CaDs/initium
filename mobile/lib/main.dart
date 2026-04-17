@@ -8,6 +8,8 @@ import 'providers/api_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/locale_provider.dart';
 import 'presentation/router/app_router.dart';
+import 'styles/app_colors.dart';
+import 'ui/app_scaffold.dart';
 
 const _devBypassAuth = bool.fromEnvironment('DEV_BYPASS_AUTH');
 
@@ -52,22 +54,11 @@ class InitiumApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: AppLocalizations.supportedLocales,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF292524),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF292524),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-      ),
+      theme: AppColors(brightness: Brightness.light).toThemeData(),
+      darkTheme: AppColors(brightness: Brightness.dark).toThemeData(),
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) => AppScaffold(child: child ?? const SizedBox()),
     );
   }
 }

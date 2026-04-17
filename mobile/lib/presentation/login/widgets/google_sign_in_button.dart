@@ -5,7 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mobile/l10n/app_localizations.dart';
+
 import '../../../providers/api_provider.dart';
+import '../../../ui/app_scaffold.dart';
+import '../../../ui/widgets/app_btn.dart';
 
 /// iOS Client ID from GoogleService-Info.plist.
 /// Set via --dart-define=GOOGLE_IOS_CLIENT_ID=xxx
@@ -15,10 +18,7 @@ const _iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 /// Set via --dart-define=GOOGLE_SERVER_CLIENT_ID=xxx
 const _serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 
-/// Google Sign-In button.
-/// Requires GOOGLE_IOS_CLIENT_ID and GOOGLE_SERVER_CLIENT_ID via --dart-define,
-/// or GoogleService-Info.plist (iOS) / google-services.json (Android).
-/// See mobile/SETUP.md for configuration instructions.
+/// Google Sign-In button, wonderized to use [AppBtn] + token-driven palette.
 class GoogleSignInButton extends ConsumerWidget {
   const GoogleSignInButton({super.key});
 
@@ -26,22 +26,17 @@ class GoogleSignInButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
 
-    return Semantics(
-      button: true,
-      label: l10n.loginGoogle,
-      child: OutlinedButton(
+    return SizedBox(
+      width: double.infinity,
+      child: AppBtn.from(
         onPressed: () => _signIn(context, ref),
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(double.infinity, 52),
-          side: BorderSide(color: Theme.of(context).colorScheme.outline),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.g_mobiledata, size: 24),
-            const SizedBox(width: 8),
-            Text(l10n.loginGoogle, style: const TextStyle(fontSize: 16)),
-          ],
+        text: l10n.loginGoogle,
+        semanticLabel: l10n.loginGoogle,
+        isSecondary: true,
+        icon: Icon(Icons.g_mobiledata, size: 26, color: $styles.colors.fg),
+        minimumSize: const Size(double.infinity, 52),
+        border: BorderSide(
+          color: $styles.colors.greySoft.withValues(alpha: 0.6),
         ),
       ),
     );
@@ -50,7 +45,6 @@ class GoogleSignInButton extends ConsumerWidget {
   Future<void> _signIn(BuildContext context, WidgetRef ref) async {
     final l10n = AppLocalizations.of(context)!;
 
-    // Check if client IDs are configured
     final clientId = Platform.isIOS ? _iosClientId : null;
     if (Platform.isIOS && _iosClientId.isEmpty) {
       _showSetup(context, l10n);
@@ -65,14 +59,15 @@ class GoogleSignInButton extends ConsumerWidget {
       );
 
       final account = await googleSignIn.signIn();
-      if (account == null) return; // User cancelled
+      if (account == null) return;
 
       final auth = await account.authentication;
       final idToken = auth.idToken;
 
       if (idToken == null) {
         if (context.mounted) {
-          _showError(context, 'Failed to get ID token. Check GOOGLE_SERVER_CLIENT_ID.');
+          _showError(
+              context, 'Failed to get ID token. Check GOOGLE_SERVER_CLIENT_ID.');
         }
         return;
       }
@@ -100,8 +95,7 @@ class GoogleSignInButton extends ConsumerWidget {
 
   void _showError(BuildContext context, String message) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 }

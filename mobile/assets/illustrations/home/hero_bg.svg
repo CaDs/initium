@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PLACEHOLDER: home hero background wash. Swap with texture / painterly backdrop. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="homeGrad" cx="0.3" cy="0.3" r="1">
+      <stop offset="0" stop-color="#F7F3EC"/>
+      <stop offset="0.6" stop-color="#E6D4B3"/>
+      <stop offset="1" stop-color="#6B5E52"/>
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="800" fill="url(#homeGrad)"/>
+</svg>

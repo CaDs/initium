@@ -35,5 +35,9 @@
   "authGoogleLoginFailed": "Error al iniciar sesión con Google",
   "authMagicLinkFailed": "Error al verificar el enlace mágico",
   "verifyFailed": "Verificación fallida",
-  "verifyExpiredOrUsed": "El enlace puede haber expirado o ya fue utilizado."
+  "verifyExpiredOrUsed": "El enlace puede haber expirado o ya fue utilizado.",
+  "landingSwipeHint": "Desliza hacia arriba para comenzar",
+  "loginHeroCaption": "Encuentra tu camino.",
+  "verifyCelebration": "Bienvenido.",
+  "verifyRetry": "Reintentar"
 }
