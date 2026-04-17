@@ -231,6 +231,7 @@ components:
   schemas:
     User:
       type: object
+      required: [id, email, name, avatar_url, created_at]
       properties:
         id:
           type: string
@@ -248,6 +249,7 @@ components:
 
     TokenPair:
       type: object
+      required: [access_token, refresh_token]
       properties:
         access_token:
           type: string
@@ -256,12 +258,14 @@ components:
 
     MessageResponse:
       type: object
+      required: [message]
       properties:
         message:
           type: string
 
     ErrorResponse:
       type: object
+      required: [code, message]
       properties:
         code:
           type: string

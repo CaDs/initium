@@ -8,7 +8,7 @@ DB_URL := postgres://initium:initium@127.0.0.1:5432/initium_dev?sslmode=disable
         backend-dev backend-run backend-test backend-lint backend-build \
         web-dev web-build web-test web-lint \
         mobile-dev mobile-test mobile-gen mobile-build-apk mobile-build-ios mobile-lint \
-        test lint logs clean \
+        test lint logs clean gen gen-backend gen-web \
         keygen
 
 help: ## Show this help
@@ -154,6 +154,16 @@ clean: ## Remove build artifacts (bin, .next cache, Flutter build)
 	rm -rf $(WEB_DIR)/.next
 	rm -rf $(WEB_DIR)/node_modules/.cache
 	rm -rf $(MOBILE_DIR)/build
+
+# --- Codegen ---
+
+gen: gen-backend gen-web ## Regenerate API types from backend/api/openapi.yaml (Go + TS)
+
+gen-backend: ## Regenerate Go types from OpenAPI spec (oapi-codegen, pinned in go.mod tools)
+	cd $(BACKEND_DIR) && go tool oapi-codegen -config internal/gen/api/config.yaml api/openapi.yaml
+
+gen-web: ## Regenerate TypeScript types from OpenAPI spec (openapi-typescript)
+	cd $(WEB_DIR) && npx openapi-typescript ../backend/api/openapi.yaml -o src/lib/api-types.ts
 
 # --- Utils ---
 
