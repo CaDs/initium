@@ -82,6 +82,25 @@ make mobile-gen   # Required after DTO changes (build_runner)
 
 Every OpenAPI schema used on the wire should have a `required:` array — otherwise codegen produces optional fields everywhere and consumers have to guard fields that the backend always returns.
 
+## Observability
+
+The template ships opinionated-but-light defaults and leaves vendor choices to the fork author.
+
+**What's wired out of the box:**
+- `GET /healthz` — liveness (no deps), returns `{"status":"ok"}`.
+- `GET /readyz` — readiness, `db.Ping()` with 2s timeout, returns 503 on failure.
+- `GET /metrics` — Prometheus endpoint via `prometheus/client_golang` with default Go runtime + process collectors. Point a Prometheus scraper at it; register your own `prometheus.Counter` / `Histogram` against the default registry to track app metrics.
+- Structured access-log middleware (slog JSON: method, path, status, duration_ms, request_id, remote_ip).
+
+**What's NOT wired (env placeholders + pointers only):**
+- **Sentry** — DSN env vars exist (`SENTRY_DSN` backend+mobile, `NEXT_PUBLIC_SENTRY_DSN` web) but no init code. To enable:
+  - Backend: `go get github.com/getsentry/sentry-go`, call `sentry.Init(sentry.ClientOptions{Dsn: cfg.SentryDSN, Environment: cfg.AppEnv})` in `main.go` before router wiring; add `sentryhttp.New(...).Handle` as a middleware before Recoverer.
+  - Web: `npm i @sentry/nextjs`, follow `npx @sentry/wizard@latest -i nextjs`.
+  - Mobile: `flutter pub add sentry_flutter`, wrap `SentryFlutter.init((opts) { opts.dsn = ...; }, appRunner: () => runApp(...))` in `main.dart`.
+- **OpenTelemetry** — `OTEL_EXPORTER_OTLP_ENDPOINT` env placeholder only. To enable tracing on chi, install `go.opentelemetry.io/contrib/instrumentation/github.com/go-chi/chi/otelchi` and wire at the top of global middleware. Keep it off by default — OTEL config is tedious and vendor-specific.
+
+Pick Sentry OR OTEL, not both, unless you genuinely need span export + error grouping.
+
 ## Conventions
 
 - Conventional Commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`

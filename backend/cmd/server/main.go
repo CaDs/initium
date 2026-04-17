@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
@@ -121,9 +122,13 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health / readiness checks
+	// Health / readiness / metrics
 	r.Get("/healthz", handler.Healthz)
 	r.Get("/readyz", handler.Readyz(db))
+	// Prometheus scrape endpoint. Default collectors give Go runtime + process
+	// metrics out of the box; register your own collectors against the default
+	// registry to expose app-level counters/histograms.
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {
