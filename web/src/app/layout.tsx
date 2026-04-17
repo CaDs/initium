@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { Toaster } from "sonner";
 import "./globals.css";
 import Nav from "@/components/shared/Nav";
 import DevModeBanner from "@/components/shared/DevModeBanner";
@@ -64,6 +65,7 @@ export default async function RootLayout({
           <main id="main-content" className="flex-1">
             {children}
           </main>
+          <Toaster richColors position="top-right" theme="system" />
         </NextIntlClientProvider>
       </body>
     </html>

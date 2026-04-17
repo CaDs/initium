@@ -24,7 +24,9 @@
       "submit": "Enviar enlace mágico",
       "sending": "Enviando...",
       "sent": "¡Revisa tu correo!",
-      "sentDetail": "Se ha enviado un enlace mágico a tu bandeja de entrada."
+      "sentDetail": "Se ha enviado un enlace mágico a tu bandeja de entrada.",
+      "sentTitle": "Enlace mágico enviado",
+      "sentBody": "Revisa tu bandeja de entrada — el enlace expira en 15 minutos."
     }
   },
   "home": {

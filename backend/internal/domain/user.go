@@ -9,6 +9,7 @@ type User struct {
 	Name         string
 	AvatarURL    string
 	AuthProvider string // "google" or "magic_link"
+	Role         string // "user" or "admin"
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }

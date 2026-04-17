@@ -1,9 +1,10 @@
 package main
 
 import (
+	"context"
 	"log/slog"
+	"net/http"
 	"os"
-
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,10 +18,12 @@ import (
 	"github.com/eridia/initium/backend/internal/adapter/persistence"
 	"github.com/eridia/initium/backend/internal/infra"
 	"github.com/eridia/initium/backend/internal/infra/config"
+	"github.com/eridia/initium/backend/internal/infra/cron"
 	"github.com/eridia/initium/backend/internal/infra/database"
 	"github.com/eridia/initium/backend/internal/infra/email"
 	"github.com/eridia/initium/backend/internal/infra/google"
 	"github.com/eridia/initium/backend/internal/infra/token"
+	"github.com/eridia/initium/backend/internal/infra/worker"
 	"github.com/eridia/initium/backend/internal/service"
 )
 
@@ -56,11 +59,15 @@ func main() {
 
 	oauthVerifier := google.NewOAuthVerifier(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 
-	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPFrom, cfg.AppURL, cfg.AppDeepScheme)
+	smtpSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPFrom, cfg.AppURL, cfg.AppDeepScheme)
 	if err != nil {
 		slog.Error("initializing email sender", "error", err)
 		os.Exit(1)
 	}
+
+	// Worker pool — async email delivery
+	workerPool := worker.New()
+	emailSender := email.NewAsyncSender(workerPool, smtpSender)
 
 	// Repositories
 	userRepo := persistence.NewGormUserRepo(db)
@@ -70,11 +77,32 @@ func main() {
 	authService := service.NewAuthService(userRepo, sessionRepo, oauthVerifier, emailSender, tokenGen)
 	userService := service.NewUserService(userRepo)
 
+	// Cron scheduler — periodic cleanup tasks
+	scheduler := cron.New()
+	scheduler.Every(time.Hour, func(ctx context.Context) {
+		n, err := sessionRepo.DeleteExpiredMagicLinks(ctx)
+		if err != nil {
+			slog.Error("magic link cleanup failed", "error", err)
+			return
+		}
+		slog.Info("magic link cleanup complete", "deleted", n)
+	})
+	scheduler.Start(context.Background())
+
 	// Handlers
 	secureCookies := cfg.AppEnv != "development"
 	authHandler := handler.NewAuthHandler(authService, oauthVerifier, cfg.AppURL, secureCookies)
 	mobileAuthHandler := handler.NewMobileAuthHandler(authService)
 	userHandler := handler.NewUserHandler(userService)
+
+	// Role lookup callback for RequireRole middleware (avoids importing repo into middleware).
+	roleLookup := func(ctx context.Context, userID string) (string, error) {
+		u, err := userRepo.FindByID(ctx, userID)
+		if err != nil {
+			return "", err
+		}
+		return u.Role, nil
+	}
 
 	// Router
 	r := chi.NewRouter()
@@ -123,6 +151,16 @@ func main() {
 			r.Post("/auth/logout", authHandler.Logout)
 			r.Post("/auth/logout-all", authHandler.LogoutAll)
 		})
+
+		// Admin-only routes
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Auth(tokenGen, cfg.DevBypassAuth))
+			r.Use(middleware.RequireRole("admin", roleLookup))
+
+			r.Get("/admin/ping", func(w http.ResponseWriter, req *http.Request) {
+				handler.JSON(w, req, http.StatusOK, map[string]string{"role": "admin"})
+			})
+		})
 	})
 
 	slog.Info("configuration loaded",
@@ -131,7 +169,10 @@ func main() {
 		"port", cfg.HTTPPort,
 	)
 
-	if err := infra.ServeHTTP(r, cfg.HTTPPort); err != nil {
+	if err := infra.ServeHTTP(r, cfg.HTTPPort,
+		func(_ context.Context) { scheduler.Stop() },
+		func(_ context.Context) { workerPool.Close() },
+	); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}

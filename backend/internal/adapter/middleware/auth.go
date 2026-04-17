@@ -52,6 +52,38 @@ func GetUserID(ctx context.Context) string {
 	return id
 }
 
+// RoleLookupFn is a callback that resolves the role for a given user ID.
+// Using a callback avoids a direct dependency on the UserRepository interface
+// (which would create a tighter coupling between middleware and persistence).
+type RoleLookupFn func(ctx context.Context, userID string) (role string, err error)
+
+// RequireRole returns middleware that 403s if the authenticated user's role
+// does not match the required role. Must be placed after the Auth middleware.
+func RequireRole(role string, lookup RoleLookupFn) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			userID := GetUserID(r.Context())
+			if userID == "" {
+				http.Error(w, `{"code":"UNAUTHORIZED","message":"missing user identity"}`, http.StatusUnauthorized)
+				return
+			}
+
+			userRole, err := lookup(r.Context(), userID)
+			if err != nil {
+				http.Error(w, `{"code":"INTERNAL_ERROR","message":"internal error"}`, http.StatusInternalServerError)
+				return
+			}
+
+			if userRole != role {
+				http.Error(w, `{"code":"FORBIDDEN","message":"insufficient role"}`, http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func extractToken(r *http.Request) string {
 	if auth := r.Header.Get("Authorization"); strings.HasPrefix(auth, "Bearer ") {
 		return strings.TrimPrefix(auth, "Bearer ")

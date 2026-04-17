@@ -24,7 +24,9 @@
       "submit": "Send Magic Link",
       "sending": "Sending...",
       "sent": "Check your email!",
-      "sentDetail": "A magic link has been sent to your inbox."
+      "sentDetail": "A magic link has been sent to your inbox.",
+      "sentTitle": "Magic link sent",
+      "sentBody": "Check your inbox — the link expires in 15 minutes."
     }
   },
   "home": {

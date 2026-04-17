@@ -8,11 +8,12 @@ import (
 
 // UserModel is the GORM representation of a user.
 type UserModel struct {
-	ID           string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Email        string `gorm:"uniqueIndex;not null"`
-	Name         string `gorm:"not null;default:''"`
+	ID           string  `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Email        string  `gorm:"uniqueIndex;not null"`
+	Name         string  `gorm:"not null;default:''"`
 	AvatarURL    *string
 	AuthProvider string    `gorm:"not null"`
+	Role         string    `gorm:"not null;default:'user'"`
 	CreatedAt    time.Time `gorm:"not null;default:now()"`
 	UpdatedAt    time.Time `gorm:"not null;default:now()"`
 }
@@ -30,6 +31,7 @@ func (m *UserModel) ToDomain() *domain.User {
 		Name:         m.Name,
 		AvatarURL:    avatarURL,
 		AuthProvider: m.AuthProvider,
+		Role:         m.Role,
 		CreatedAt:    m.CreatedAt,
 		UpdatedAt:    m.UpdatedAt,
 	}
@@ -46,6 +48,7 @@ func UserModelFromDomain(u *domain.User) *UserModel {
 		Name:         u.Name,
 		AvatarURL:    avatarURL,
 		AuthProvider: u.AuthProvider,
+		Role:         u.Role,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
 	}

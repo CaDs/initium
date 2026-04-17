@@ -13,6 +13,12 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for UserRole.
+const (
+	UserRoleAdmin UserRole = "admin"
+	UserRoleUser  UserRole = "user"
+)
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Code      string  `json:"code"`
@@ -38,7 +44,11 @@ type User struct {
 	Email     openapi_types.Email `json:"email"`
 	Id        openapi_types.UUID  `json:"id"`
 	Name      string              `json:"name"`
+	Role      UserRole            `json:"role"`
 }
+
+// UserRole defines model for User.Role.
+type UserRole string
 
 // GetApiAuthGoogleCallbackParams defines parameters for GetApiAuthGoogleCallback.
 type GetApiAuthGoogleCallbackParams struct {

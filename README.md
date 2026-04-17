@@ -133,6 +133,74 @@ See `CLAUDE.md` for detailed conventions per component.
 | http://localhost:8000 | Go backend API |
 | http://localhost:8025 | Mailpit (view magic link emails) |
 
+## Deployment
+
+`fly.toml` in the repo root is a minimal Fly.io starter for the backend. Fork users rename the `app` field and set their region.
+
+### 1 — Create the app (first time only)
+
+```bash
+fly launch --no-deploy   # reads fly.toml; creates the Fly app without deploying
+```
+
+### 2 — Set required secrets
+
+```bash
+fly secrets set \
+  GOOGLE_CLIENT_ID="…"     GOOGLE_CLIENT_SECRET="…" \
+  DB_HOST="…"              DB_USER="…" \
+  DB_PASSWORD="…"          DB_NAME="…" \
+  SMTP_FROM="…"            SMTP_HOST="…" \
+  SMTP_PORT="587"          APP_URL="https://your-app.fly.dev"
+```
+
+> **Important:** Do NOT set `DEV_BYPASS_AUTH` in production. When `APP_ENV=production`,
+> `config.go` ignores it even if the variable is present.
+
+### 3 — JWT keys
+
+Config reads keys from file paths in `JWT_PRIVATE_KEY_PATH` / `JWT_PUBLIC_KEY_PATH`.
+The recommended pattern is to store base64-encoded PEM files as secrets and write them
+to `/secrets/` in an entrypoint script before `exec`-ing the server:
+
+```bash
+# Encode once locally
+fly secrets set \
+  JWT_PRIVATE_KEY_B64="$(base64 -i backend/jwt_private.pem)" \
+  JWT_PUBLIC_KEY_B64="$(base64 -i backend/jwt_public.pem)"
+```
+
+Entrypoint sketch (implement in `backend/entrypoint.sh`, referenced in the Dockerfile):
+
+```bash
+#!/bin/sh
+mkdir -p /secrets
+echo "$JWT_PRIVATE_KEY_B64" | base64 -d > /secrets/jwt_private.pem
+echo "$JWT_PUBLIC_KEY_B64"  | base64 -d > /secrets/jwt_public.pem
+exec "$@"
+```
+
+Set `JWT_PRIVATE_KEY_PATH=/secrets/jwt_private.pem` and `JWT_PUBLIC_KEY_PATH=/secrets/jwt_public.pem` as secrets too.
+
+### 4 — Run migrations
+
+```bash
+fly ssh console -C 'migrate -path migrations -database "$DB_URL" up'
+```
+
+Or add a `release_command` to `fly.toml` to run them automatically on each deploy.
+
+### 5 — Deploy
+
+```bash
+fly deploy
+```
+
+`fly.toml` is a starting point. Fly has many knobs — scaling, volumes, multi-region reads.
+See https://fly.io/docs for the full reference.
+
+---
+
 ## All Commands
 
 Run `make help` to see the full list.

@@ -74,11 +74,13 @@ make mobile-gen   # Required after DTO changes (build_runner)
 
 ## API Contract
 
-`backend/api/openapi.yaml` is the canonical spec. When changing API responses:
-1. Update `openapi.yaml` first
-2. Update backend Go structs
-3. Update `web/src/lib/schemas.ts` (Zod)
-4. Update `mobile/lib/data/remote/dto/` + run `make mobile-gen`
+`backend/api/openapi.yaml` is the canonical spec. After editing it, run `make gen`:
+
+- `backend/internal/gen/api/types.gen.go` — Go types via `oapi-codegen` (pinned in `backend/go.mod` as a tool dependency; invoked via `go tool oapi-codegen`). Domain entities in `internal/domain/` remain hand-written; generated types are for wire contracts.
+- `web/src/lib/api-types.ts` — TypeScript types via `openapi-typescript` (devDependency in `web/package.json`). Existing Zod schemas in `lib/schemas.ts` remain the runtime validator; cross-check against generated types during review.
+- Mobile DTOs in `mobile/lib/data/remote/dto/` stay hand-written; there is no first-class OpenAPI → Dart generator that fits the Riverpod/Dio stack. Run `make mobile-gen` after DTO changes (build_runner for `@JsonSerializable`).
+
+Every OpenAPI schema used on the wire should have a `required:` array — otherwise codegen produces optional fields everywhere and consumers have to guard fields that the backend always returns.
 
 ## Conventions
 

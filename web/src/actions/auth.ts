@@ -2,7 +2,18 @@
 
 import { apiFetch } from "@/lib/api";
 
-export async function requestMagicLink(email: string): Promise<{ ok: boolean; message: string }> {
+export type MagicLinkState = { ok: boolean; message: string };
+
+export async function requestMagicLink(
+  _prev: MagicLinkState,
+  formData: FormData
+): Promise<MagicLinkState> {
+  const email = formData.get("email");
+
+  if (typeof email !== "string" || !email) {
+    return { ok: false, message: "Email is required." };
+  }
+
   const result = await apiFetch<{ message: string }>("/api/auth/magic-link", {
     method: "POST",
     body: JSON.stringify({ email }),

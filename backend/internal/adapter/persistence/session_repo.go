@@ -91,6 +91,18 @@ func (r *GormSessionRepo) FindMagicLinkTokenByHash(ctx context.Context, hash str
 	return m.ToDomain(), nil
 }
 
+// DeleteExpiredMagicLinks removes magic_link_tokens that are expired or already used.
+// Returns the number of rows deleted.
+func (r *GormSessionRepo) DeleteExpiredMagicLinks(ctx context.Context) (int, error) {
+	res := r.db.WithContext(ctx).
+		Where("expires_at < now() OR used_at IS NOT NULL").
+		Delete(&MagicLinkTokenModel{})
+	if res.Error != nil {
+		return 0, fmt.Errorf("deleting expired magic links: %w", res.Error)
+	}
+	return int(res.RowsAffected), nil
+}
+
 // MarkMagicLinkTokenUsed atomically claims a magic-link token as used.
 // Returns domain.ErrTokenUsed if the token was already consumed by a concurrent
 // request — prevents the TOCTOU between FindMagicLinkTokenByHash and this call.

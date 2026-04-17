@@ -10,8 +10,14 @@ import (
 	"time"
 )
 
+// ShutdownHook is called during graceful shutdown, before the HTTP server stops.
+// Implementations should complete their cleanup within the provided context deadline.
+type ShutdownHook func(ctx context.Context)
+
 // ServeHTTP starts the HTTP server with graceful shutdown on SIGTERM/SIGINT.
-func ServeHTTP(handler http.Handler, port int) error {
+// hooks are invoked in order before the HTTP server shuts down; each shares a
+// 5-second deadline to drain in-flight work.
+func ServeHTTP(handler http.Handler, port int, hooks ...ShutdownHook) error {
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", port),
 		Handler:           handler,
@@ -37,6 +43,14 @@ func ServeHTTP(handler http.Handler, port int) error {
 		}
 	case <-ctx.Done():
 		slog.Info("shutting down gracefully...")
+
+		// Run pre-shutdown hooks (worker drain, cron stop, etc.) with a 5s budget.
+		hookCtx, hookCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer hookCancel()
+		for _, hook := range hooks {
+			hook(hookCtx)
+		}
+
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(shutdownCtx); err != nil {

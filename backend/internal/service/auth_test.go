@@ -130,6 +130,10 @@ func (m *mockSessionRepo) MarkMagicLinkTokenUsed(_ context.Context, id string) e
 	return nil
 }
 
+func (m *mockSessionRepo) DeleteExpiredMagicLinks(_ context.Context) (int, error) {
+	return 0, nil
+}
+
 type mockOAuthVerifier struct{}
 
 func (m *mockOAuthVerifier) ExchangeCode(_ context.Context, code string) (*domain.OAuthProfile, error) {

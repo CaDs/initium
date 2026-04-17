@@ -22,6 +22,7 @@ type SessionRepository interface {
 	CreateMagicLinkToken(ctx context.Context, token *MagicLinkToken) error
 	FindMagicLinkTokenByHash(ctx context.Context, hash string) (*MagicLinkToken, error)
 	MarkMagicLinkTokenUsed(ctx context.Context, tokenID string) error
+	DeleteExpiredMagicLinks(ctx context.Context) (int, error)
 }
 
 // --- Service interfaces ---

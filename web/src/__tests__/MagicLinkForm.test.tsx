@@ -11,6 +11,8 @@ vi.mock("next-intl", () => ({
       sending: "Sending...",
       sent: "Check your email!",
       sentDetail: "A magic link has been sent to your inbox.",
+      sentTitle: "Magic link sent",
+      sentBody: "Check your inbox — the link expires in 15 minutes.",
     };
     return map[key] ?? key;
   },
@@ -20,6 +22,24 @@ vi.mock("next-intl", () => ({
 vi.mock("@/actions/auth", () => ({
   requestMagicLink: vi.fn(),
 }));
+
+// Mock sonner — toasts are client-only and not relevant to unit tests
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+// useActionState is a React 19 hook; provide a simple shim so the component
+// renders in the idle/initial state without needing a full server action run.
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useActionState: (
+      _action: unknown,
+      initialState: unknown
+    ): [unknown, () => void, boolean] => [initialState, () => {}, false],
+  };
+});
 
 describe("MagicLinkForm", () => {
   beforeEach(() => {
