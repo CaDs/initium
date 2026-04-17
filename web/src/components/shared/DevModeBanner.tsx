@@ -1,7 +1,8 @@
 import { useTranslations } from "next-intl";
 
 export default function DevModeBanner() {
-  if (process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH !== "true") return null;
+  // Server-only env var — rendered in a Server Component, never shipped to the client.
+  if (process.env.DEV_BYPASS_AUTH !== "true") return null;
 
   return <DevBannerContent />;
 }

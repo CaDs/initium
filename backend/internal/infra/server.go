@@ -13,11 +13,12 @@ import (
 // ServeHTTP starts the HTTP server with graceful shutdown on SIGTERM/SIGINT.
 func ServeHTTP(handler http.Handler, port int) error {
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      handler,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              fmt.Sprintf(":%d", port),
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)

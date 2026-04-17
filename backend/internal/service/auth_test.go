@@ -117,10 +117,14 @@ func (m *mockSessionRepo) FindMagicLinkTokenByHash(_ context.Context, hash strin
 }
 
 func (m *mockSessionRepo) MarkMagicLinkTokenUsed(_ context.Context, id string) error {
-	now := time.Now()
 	for _, t := range m.magicLinks {
 		if t.ID == id {
+			if t.UsedAt != nil {
+				return domain.ErrTokenUsed
+			}
+			now := time.Now()
 			t.UsedAt = &now
+			return nil
 		}
 	}
 	return nil
@@ -294,6 +298,27 @@ func TestAuthService_VerifyMagicLink_ExpiredToken(t *testing.T) {
 	_, _, err := svc.VerifyMagicLink(context.Background(), "expired")
 	if !errors.Is(err, domain.ErrTokenExpired) {
 		t.Errorf("expected ErrTokenExpired, got %v", err)
+	}
+}
+
+func TestAuthService_VerifyMagicLink_RedeemTwice_ReturnsTokenUsed(t *testing.T) {
+	t.Parallel()
+	svc, _, sessions, _ := newTestAuthService()
+
+	sessions.magicLinks["hash-twice"] = &domain.MagicLinkToken{
+		ID:        "mlt-twice",
+		Email:     "twice@test.com",
+		TokenHash: "hash-twice",
+		ExpiresAt: time.Now().Add(10 * time.Minute),
+	}
+
+	if _, _, err := svc.VerifyMagicLink(context.Background(), "twice"); err != nil {
+		t.Fatalf("first redeem should succeed, got %v", err)
+	}
+
+	_, _, err := svc.VerifyMagicLink(context.Background(), "twice")
+	if !errors.Is(err, domain.ErrTokenUsed) {
+		t.Errorf("second redeem should return ErrTokenUsed, got %v", err)
 	}
 }
 

@@ -49,5 +49,18 @@
     "mainNav": "Navegación principal",
     "googleIcon": "Logo de Google",
     "loading": "Cargando"
+  },
+  "errors": {
+    "title": "Algo salió mal",
+    "body": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.",
+    "retry": "Intentar de nuevo"
+  },
+  "notFound": {
+    "title": "Página no encontrada",
+    "body": "La página que buscas no existe.",
+    "home": "Ir al inicio"
+  },
+  "loading": {
+    "label": "Cargando contenido"
   }
 }

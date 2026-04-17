@@ -5,7 +5,8 @@ import { resolve } from "path";
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "node",
+    environment: "happy-dom",
+    setupFiles: ["./src/__tests__/setup.ts"],
   },
   resolve: {
     alias: {

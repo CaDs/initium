@@ -120,6 +120,9 @@ func (s *AuthService) VerifyMagicLink(ctx context.Context, token string) (*domai
 	}
 
 	if err := s.sessions.MarkMagicLinkTokenUsed(ctx, mlt.ID); err != nil {
+		if errors.Is(err, domain.ErrTokenUsed) {
+			return nil, nil, domain.ErrTokenUsed
+		}
 		return nil, nil, fmt.Errorf("marking token used: %w", err)
 	}
 

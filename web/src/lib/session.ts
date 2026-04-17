@@ -31,7 +31,9 @@ export async function setTokenCookies(accessToken: string, refreshToken: string)
 export async function clearTokenCookies() {
   const cookieStore = await cookies();
   cookieStore.delete("access_token");
-  cookieStore.delete("refresh_token");
+  // refresh_token is scoped to REFRESH_TOKEN_PATH; the delete must use the
+  // same path or the browser keeps the cookie and logout silently fails.
+  cookieStore.delete({ name: "refresh_token", path: REFRESH_TOKEN_PATH });
 }
 
 export async function getAccessToken(): Promise<string | undefined> {

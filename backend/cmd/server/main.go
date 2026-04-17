@@ -56,7 +56,7 @@ func main() {
 
 	oauthVerifier := google.NewOAuthVerifier(cfg.GoogleClientID, cfg.GoogleClientSecret, cfg.GoogleRedirectURL)
 
-	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.AppURL, cfg.AppDeepScheme)
+	emailSender, err := email.NewSMTPSender(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPFrom, cfg.AppURL, cfg.AppDeepScheme)
 	if err != nil {
 		slog.Error("initializing email sender", "error", err)
 		os.Exit(1)
@@ -82,7 +82,9 @@ func main() {
 	// Global middleware
 	r.Use(chimiddleware.RealIP)
 	r.Use(middleware.RequestID)
+	r.Use(middleware.AccessLog)
 	r.Use(chimiddleware.Recoverer)
+	r.Use(chimiddleware.RequestSize(1 << 20)) // 1 MiB body limit
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{cfg.AppURL},
 		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
@@ -91,8 +93,9 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// Health check
+	// Health / readiness checks
 	r.Get("/healthz", handler.Healthz)
+	r.Get("/readyz", handler.Readyz(db))
 
 	// Public routes
 	r.Route("/api", func(r chi.Router) {

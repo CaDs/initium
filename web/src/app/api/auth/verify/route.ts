@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { API_URL } from "@/lib/env";
 
 // Magic link verification — the backend handles token verification and
 // sets cookies directly via redirects. This route exists as a fallback.
@@ -10,6 +11,5 @@ export async function GET(request: NextRequest) {
   }
 
   // Redirect to backend for verification
-  const apiUrl = process.env.API_URL || "http://localhost:8000";
-  return NextResponse.redirect(`${apiUrl}/api/auth/verify?token=${token}`);
+  return NextResponse.redirect(`${API_URL}/api/auth/verify?token=${token}`);
 }

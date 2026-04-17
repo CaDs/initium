@@ -28,6 +28,7 @@ type Config struct {
 
 	SMTPHost      string
 	SMTPPort      int
+	SMTPFrom      string
 	AppDeepScheme string
 }
 
@@ -50,6 +51,7 @@ func Load() (*Config, error) {
 		JWTPublicKeyPath:   envOrDefault("JWT_PUBLIC_KEY_PATH", "jwt_public.pem"),
 		SMTPHost:           envOrDefault("SMTP_HOST", "localhost"),
 		SMTPPort:           envIntOrDefault("SMTP_PORT", 1025),
+		SMTPFrom:           envOrDefault("SMTP_FROM", "noreply@initium.local"),
 		AppDeepScheme:      envOrDefault("APP_DEEP_SCHEME", "initium"),
 	}
 

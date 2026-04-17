@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { clearTokenCookies } from "@/lib/session";
-
-const API_URL = process.env.API_URL || "http://localhost:8000";
+import { API_URL } from "@/lib/env";
 
 export async function POST(request: NextRequest) {
   const refreshToken = request.cookies.get("refresh_token")?.value;

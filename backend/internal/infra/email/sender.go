@@ -24,7 +24,7 @@ type SMTPSender struct {
 }
 
 // NewSMTPSender creates a new email sender.
-func NewSMTPSender(host string, port int, appURL string, appDeepScheme string) (*SMTPSender, error) {
+func NewSMTPSender(host string, port int, from string, appURL string, appDeepScheme string) (*SMTPSender, error) {
 	tmpl, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parsing email templates: %w", err)
@@ -35,7 +35,7 @@ func NewSMTPSender(host string, port int, appURL string, appDeepScheme string) (
 		port:          port,
 		appURL:        appURL,
 		appDeepScheme: appDeepScheme,
-		from:          "noreply@initium.local",
+		from:          from,
 		tmpl:          tmpl,
 	}, nil
 }

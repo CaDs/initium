@@ -1,8 +1,7 @@
 import { cookies } from "next/headers";
 import type { z } from "zod";
 import type { ApiResult, ApiError } from "./types";
-
-const API_URL = process.env.API_URL || "http://localhost:8000";
+import { API_URL } from "./env";
 
 export async function apiFetch<T>(
   path: string,

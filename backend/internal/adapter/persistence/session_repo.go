@@ -91,12 +91,19 @@ func (r *GormSessionRepo) FindMagicLinkTokenByHash(ctx context.Context, hash str
 	return m.ToDomain(), nil
 }
 
+// MarkMagicLinkTokenUsed atomically claims a magic-link token as used.
+// Returns domain.ErrTokenUsed if the token was already consumed by a concurrent
+// request — prevents the TOCTOU between FindMagicLinkTokenByHash and this call.
 func (r *GormSessionRepo) MarkMagicLinkTokenUsed(ctx context.Context, tokenID string) error {
 	now := time.Now()
-	if err := r.db.WithContext(ctx).Model(&MagicLinkTokenModel{}).
-		Where("id = ?", tokenID).
-		Update("used_at", now).Error; err != nil {
-		return fmt.Errorf("marking magic link token used: %w", err)
+	res := r.db.WithContext(ctx).Model(&MagicLinkTokenModel{}).
+		Where("id = ? AND used_at IS NULL", tokenID).
+		Update("used_at", now)
+	if res.Error != nil {
+		return fmt.Errorf("marking magic link token used: %w", res.Error)
+	}
+	if res.RowsAffected == 0 {
+		return domain.ErrTokenUsed
 	}
 	return nil
 }

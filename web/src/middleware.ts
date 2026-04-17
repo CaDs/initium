@@ -6,10 +6,10 @@ import {
   REFRESH_TOKEN_MAX_AGE,
   REFRESH_TOKEN_PATH,
 } from "./lib/cookie-config";
-
-const API_URL = process.env.API_URL || "http://localhost:8000";
+import { tokenPairSchema } from "./lib/schemas";
+import { API_URL } from "./lib/env";
 const PROTECTED_PATHS = ["/home"];
-const DEV_BYPASS = process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === "true";
+const DEV_BYPASS = process.env.DEV_BYPASS_AUTH === "true";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -40,11 +40,19 @@ export async function middleware(request: NextRequest) {
     if (!refreshRes.ok) {
       const response = NextResponse.redirect(new URL("/login", request.url));
       response.cookies.delete("access_token");
-      response.cookies.delete("refresh_token");
+      response.cookies.delete({ name: "refresh_token", path: REFRESH_TOKEN_PATH });
       return response;
     }
 
-    const tokens = await refreshRes.json();
+    const parsed = tokenPairSchema.safeParse(await refreshRes.json());
+    if (!parsed.success) {
+      // Unexpected response shape — never write "undefined" cookies.
+      const response = NextResponse.redirect(new URL("/login", request.url));
+      response.cookies.delete("access_token");
+      response.cookies.delete({ name: "refresh_token", path: REFRESH_TOKEN_PATH });
+      return response;
+    }
+    const tokens = parsed.data;
     const response = NextResponse.next();
 
     response.cookies.set("access_token", tokens.access_token, {

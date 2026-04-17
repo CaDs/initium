@@ -1,12 +1,17 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
+
+	"gorm.io/gorm"
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
@@ -49,7 +54,7 @@ func (h *AuthHandler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 // GoogleCallback handles the OAuth callback.
 func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie("oauth_state")
-	if err != nil || stateCookie.Value != r.URL.Query().Get("state") {
+	if err != nil || subtle.ConstantTimeCompare([]byte(stateCookie.Value), []byte(r.URL.Query().Get("state"))) != 1 {
 		Error(w, r, domain.ErrInvalidCredentials)
 		return
 	}
@@ -213,7 +218,37 @@ func generateState() (string, error) {
 	return hex.EncodeToString(b), nil
 }
 
-// Healthz returns a simple health check.
+// Healthz returns a simple liveness check (no dependencies).
 func Healthz(w http.ResponseWriter, r *http.Request) {
 	JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// Readyz returns a readiness check that verifies DB connectivity.
+// Returns 200 {"status":"ok"} on success, 503 {"status":"unready","error":"..."} on failure.
+func Readyz(db *gorm.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+
+		sqlDB, err := db.DB()
+		if err != nil {
+			slog.Error("readyz: failed to get sql.DB", "error", err)
+			JSON(w, r, http.StatusServiceUnavailable, map[string]string{
+				"status": "unready",
+				"error":  "database unavailable",
+			})
+			return
+		}
+
+		if err := sqlDB.PingContext(ctx); err != nil {
+			slog.Error("readyz: database ping failed", "error", err)
+			JSON(w, r, http.StatusServiceUnavailable, map[string]string{
+				"status": "unready",
+				"error":  err.Error(),
+			})
+			return
+		}
+
+		JSON(w, r, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

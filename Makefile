@@ -7,7 +7,8 @@ DB_URL := postgres://initium:initium@127.0.0.1:5432/initium_dev?sslmode=disable
         db-migrate db-rollback db-create \
         backend-dev backend-run backend-test backend-lint backend-build \
         web-dev web-build web-test web-lint \
-        mobile-dev mobile-test mobile-gen mobile-build-apk mobile-build-ios \
+        mobile-dev mobile-test mobile-gen mobile-build-apk mobile-build-ios mobile-lint \
+        test lint logs clean \
         keygen
 
 help: ## Show this help
@@ -24,16 +25,18 @@ setup: infra-up ## First-time project setup
 	cd $(MOBILE_DIR) && flutter pub get
 	$(MAKE) keygen
 	@echo "Waiting for PostgreSQL..."
-	@sleep 3
+	@until docker compose exec -T postgres pg_isready -U initium >/dev/null 2>&1; do sleep 1; done
 	$(MAKE) db-migrate
 	@echo ""
 	@echo "Setup complete. Edit backend/.env with your Google OAuth credentials."
 	@echo "View magic link emails at http://localhost:8025 (Mailpit)"
 
-dev: infra-up ## Start backend + web for local development
-	@echo "Starting backend (8000) + web (3000)..."
-	cd $(BACKEND_DIR) && go run ./cmd/server & \
-	cd $(WEB_DIR) && npm run dev
+dev: infra-up ## Start backend (air) + web dev server (requires air: go install github.com/air-verse/air@latest)
+	@echo "Starting backend (8000) + web (3000)... Press Ctrl-C to stop both."
+	@bash -c 'trap "kill 0" INT TERM EXIT; \
+		(cd $(BACKEND_DIR) && air) & \
+		(cd $(WEB_DIR) && npm run dev) & \
+		wait'
 
 # --- Infrastructure ---
 
@@ -127,6 +130,30 @@ mobile-build-apk: ## Build Android debug APK
 
 mobile-build-ios: ## Build iOS simulator build
 	cd $(MOBILE_DIR) && flutter build ios --simulator
+
+mobile-lint: ## Lint mobile Dart code
+	cd $(MOBILE_DIR) && dart analyze
+
+# --- Aggregate ---
+
+test: ## Run all tests (backend, web, mobile) — fail fast
+	$(MAKE) backend-test
+	$(MAKE) web-test
+	$(MAKE) mobile-test
+
+lint: ## Lint all code (backend, web, mobile)
+	$(MAKE) backend-lint
+	$(MAKE) web-lint
+	$(MAKE) mobile-lint
+
+logs: ## Tail docker compose logs
+	docker compose logs -f
+
+clean: ## Remove build artifacts (bin, .next cache, Flutter build)
+	rm -rf $(BACKEND_DIR)/bin
+	rm -rf $(WEB_DIR)/.next
+	rm -rf $(WEB_DIR)/node_modules/.cache
+	rm -rf $(MOBILE_DIR)/build
 
 # --- Utils ---
 

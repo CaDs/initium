@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
@@ -26,13 +27,21 @@ func JSON(w http.ResponseWriter, r *http.Request, status int, data any) {
 }
 
 // Error writes a standardized error response, mapping domain errors to HTTP status codes.
+// For unmapped errors (INTERNAL_ERROR) the original err is logged server-side and the
+// client receives a generic message — internal details never leak out.
 func Error(w http.ResponseWriter, r *http.Request, err error) {
 	reqID := middleware.GetRequestID(r.Context())
 	code, status := mapError(err)
 
+	message := err.Error()
+	if code == "INTERNAL_ERROR" {
+		slog.Error("internal error", "error", err, "request_id", reqID, "method", r.Method, "path", r.URL.Path)
+		message = "internal error"
+	}
+
 	JSON(w, r, status, ErrorResponse{
 		Code:      code,
-		Message:   err.Error(),
+		Message:   message,
 		RequestID: reqID,
 	})
 }

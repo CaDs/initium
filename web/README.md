@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Initium — Web Frontend
 
-## Getting Started
+Next.js 16 App Router frontend for the Initium full-stack starter template.
 
-First, run the development server:
+## Quickstart
 
+From the repo root (starts backend + web together):
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+make dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Or from this directory with the backend already running:
+```bash
+npm run dev   # http://localhost:3000
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Commands
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server on port 3000 |
+| `npm run build` | Production build |
+| `npm run test` | Vitest unit tests |
+| `npm run lint` | ESLint |
 
-## Learn More
+## Auth Flow
 
-To learn more about Next.js, take a look at the following resources:
+1. Google Sign-In redirects to the backend `/api/auth/google`; the backend handles OAuth and sets httpOnly cookies, then redirects back to `/home`.
+2. Magic link: user submits email, backend sends a link; clicking it hits `/api/auth/verify` which redirects to the backend to validate and set cookies.
+3. `middleware.ts` guards `/home` — on missing access token it attempts a silent refresh, then redirects to `/login` on failure.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Copy `.env.example` to `.env.local` and set:
 
-## Deploy on Vercel
+```
+API_URL=http://localhost:8000          # server-side backend base URL
+NEXT_PUBLIC_API_URL=http://localhost:8000  # client-side (optional)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`API_URL` is required in production and will throw at startup if missing.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Full-stack context
+
+See the root [`README.md`](/Users/eridia/Projects/initium/README.md) (or `../README.md` from here) for backend, mobile, and infrastructure setup.

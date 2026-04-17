@@ -42,10 +42,10 @@ middleware.ts         # Cookie-existence auth guard with explicit route matcher
 
 ## Auth Flow
 
-1. User clicks Google Sign-In → redirects to backend `/auth/google`
-2. Backend handles OAuth, sets httpOnly cookies, redirects to `/home`
-3. `middleware.ts` checks cookie exists → allows through
-4. Server Component in `home/page.tsx` calls `/auth/me` → if invalid, redirect to `/login`
+1. User clicks Google Sign-In → redirects to backend `/api/auth/google`
+2. Backend handles OAuth end-to-end, sets httpOnly cookies, redirects back to the web app at `/home`
+3. `middleware.ts` checks cookie exists → allows through; on missing access_token it attempts refresh via `/api/auth/refresh` (Zod-validated) and redirects to `/login` on failure
+4. Server Component in `home/page.tsx` calls `/api/me` → if invalid, redirect to `/login`
 
 ## i18n
 
@@ -76,7 +76,7 @@ Three modes via CSS class on `<html>`: no class (system), `.dark` (dark), `data-
 
 ## Gotchas
 
-- `middleware.ts` fast-path may briefly show page shell before Server Component redirect fires. Server Components that fetch user data must treat failed `/auth/me` as a redirect, not an error boundary.
-- OAuth callback state parameter validated server-side in `app/api/auth/callback/route.ts`
-- Environment variables validated at build time in `next.config.ts`
-- Backend API base URL comes from `NEXT_PUBLIC_API_URL` (client) or `API_URL` (server)
+- `middleware.ts` fast-path may briefly show page shell before Server Component redirect fires. Server Components that fetch user data must treat failed `/api/me` as a redirect, not an error boundary.
+- OAuth callback state is validated by the **backend** (`/api/auth/google/callback`). The web app does not participate in that handshake — there is no callback route in `app/api/`.
+- `DEV_BYPASS_AUTH` is server-only (no `NEXT_PUBLIC_` prefix). Read only in middleware / Server Components. Must never be `true` in a production build.
+- Backend API base URL comes from `NEXT_PUBLIC_API_URL` (client) or `API_URL` (server).

@@ -38,26 +38,30 @@ api/openapi.yaml             # Canonical API spec
 ## Migrations
 
 ```bash
-task db:migrate              # Run pending migrations
-task db:rollback             # Rollback last migration
-task db:create NAME=xxx      # Create new migration pair
+make db-migrate              # Run pending migrations
+make db-rollback             # Rollback last migration
+make db-create NAME=xxx      # Create new migration pair
 ```
 
 Never use `gorm.AutoMigrate`. Schema changes go through versioned SQL files in `migrations/`.
 
 ## Auth Endpoints
 
+All routes are mounted under the `/api` prefix.
+
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
-| GET | `/auth/google` | No | Redirect to Google consent |
-| GET | `/auth/google/callback` | No | Exchange code, set cookies |
-| POST | `/auth/magic-link` | No | Send magic link email (rate limited) |
-| GET | `/auth/verify` | No | Verify magic link token |
-| POST | `/auth/mobile/google` | No | Verify mobile ID token |
-| POST | `/auth/refresh` | Refresh token | Issue new access token |
-| POST | `/auth/logout` | Yes | Revoke session |
-| GET | `/me` | Yes | Get current user profile |
-| PATCH | `/me` | Yes | Update profile |
+| GET | `/api/auth/google` | No | Redirect to Google consent |
+| GET | `/api/auth/google/callback` | No | Exchange code, set cookies |
+| POST | `/api/auth/magic-link` | No | Send magic link email (rate limited) |
+| GET | `/api/auth/verify` | No | Verify magic link token |
+| POST | `/api/auth/mobile/google` | No | Verify mobile ID token |
+| POST | `/api/auth/mobile/verify` | No | Verify mobile magic-link token (JSON response) |
+| POST | `/api/auth/refresh` | Refresh token | Issue new access token |
+| POST | `/api/auth/logout` | Yes | Revoke current session |
+| POST | `/api/auth/logout-all` | Yes | Revoke all sessions for the user |
+| GET | `/api/me` | Yes | Get current user profile |
+| PATCH | `/api/me` | Yes | Update profile |
 
 ## Testing
 
