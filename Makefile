@@ -17,7 +17,7 @@ OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || wh
         format format\:backend format\:web format\:mobile \
         dev dev\:backend dev\:web dev\:mobile \
         build\:backend build\:web build\:mobile\:apk build\:mobile\:ios \
-        routes docs check\:openapi preflight
+        routes docs check\:openapi check\:parity check\:staged preflight
 
 help: ## Show this help (grouped by namespace)
 	@awk 'BEGIN { FS = " ## "; group = ""; prev_group = ""; } \
@@ -246,5 +246,11 @@ docs: ## Serve Swagger UI for backend/api/openapi.yaml on :$(DOCS_PORT)
 check\:openapi: ## Verify Dart DTOs stay in sync with OpenAPI spec
 	cd $(BACKEND_DIR) && go run ./cmd/check-dto-drift
 
-preflight: ## Every gate a PR must pass: lint + test + contract check
+check\:parity: ## Verify every /api/ spec path has a web or mobile consumer
+	cd $(BACKEND_DIR) && go run ./cmd/check-parity
+
+check\:staged: ## Fail if git has untracked or unstaged changes
+	@bash scripts/check-staged.sh
+
+preflight: ## Every gate a PR must pass: lint + test + check:openapi + check:parity + check:skills + check:staged
 	@bash scripts/preflight.sh

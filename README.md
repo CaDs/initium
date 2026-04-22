@@ -56,12 +56,14 @@ Every POC needs the same boring foundation. Initium provides it so you can focus
 
 ```
 initium/
-├── backend/           # Go API server
-├── web/               # Next.js frontend
-├── mobile/            # Flutter app (iOS + Android)
+├── backend/                  # Go API server
+├── web/                      # Next.js frontend
+├── mobile/                   # Flutter app (iOS + Android)
+├── .claude/skills/           # Agent guidance (initium-{backend,web,mobile})
 ├── docker-compose.yml
-├── Makefile           # All dev commands (make help)
-└── CLAUDE.md          # AI assistant conventions
+├── Makefile                  # All dev commands (make help)
+├── AGENTS.md / CLAUDE.md     # Invariants + gates + skill map (same file)
+└── docs/OPENAPI.md           # Contract-first workflow
 ```
 
 ## Development Paths
@@ -126,7 +128,9 @@ infra/     Config, DB, JWT, OAuth, email. Outermost ring.
 
 The dependency rule: inner layers never import outer layers.
 
-See `CLAUDE.md` for detailed conventions per component.
+Stack-specific conventions live in the Claude Code skills under
+`.claude/skills/initium-{backend,web,mobile}/` — agents load the relevant
+one based on which paths they're editing. See `AGENTS.md` for the map.
 
 ## Auth Model
 

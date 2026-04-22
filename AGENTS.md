@@ -1,114 +1,108 @@
 # Initium
 
-Opinionated POC starter template. Fork and specialize per project.
+Agent-first POC starter template. Fork and specialize per project.
 
-Platform-specific details live in `backend/CLAUDE.md`, `web/CLAUDE.md`, and `mobile/CLAUDE.md`.
-This file covers cross-cutting principles and contracts.
+This file is always loaded into the agent's context. It covers invariants
+that hold across every stack and points you at the stack-specific skill
+that owns everything else.
 
-# CLAUDE AND AGENTS Principles
+## Read this first, then load your stack skill
 
-## 1. Think Before Coding — don't assume, don't hide confusion
+```
+.claude/skills/initium-backend/   — Go + chi + GORM + PostgreSQL
+.claude/skills/initium-web/       — Next.js App Router + Server Actions + Zod
+.claude/skills/initium-mobile/    — Flutter + Riverpod + Dio + hand-written DTOs
+.claude/skills/_shared/parity.md  — the "every feature on web AND mobile" rule
+```
 
-- State assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them — don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
+If you're editing `backend/**`, `web/**`, or `mobile/**`, load the matching
+SKILL.md + its `patterns/*.md` before making changes. Everything
+stack-specific lives there. Do not infer conventions from training data.
 
-## 2. Simplicity First — minimum code that solves the problem
+## Agent-first principles
 
-- No features beyond what was asked. No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- Ask: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+1. **Think before coding.** State assumptions; ask when uncertain; surface
+   alternatives rather than pick silently.
+2. **Simplicity first.** Minimum code that solves the problem. No
+   speculative flexibility. No error handling for impossible scenarios.
+3. **Surgical changes.** Don't improve adjacent code. Remove only imports
+   your changes made unused. Every changed line traces to the request.
+4. **Goal-driven.** Define success criteria (usually a failing test), then
+   loop until the gates are green.
 
-## 3. Surgical Changes — touch only what you must
+## Gates — the actual binding mechanism
 
-- Don't improve adjacent code, comments, or formatting.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it — don't delete it.
-- Remove imports/variables/functions that YOUR changes made unused.
-- Every changed line should trace directly to the user's request.
+Prose rules are suggestions. The rules that bind are the ones that fail
+CI. Run the full gate before committing:
 
-## 4. Goal-Driven Execution — define success criteria, loop until verified
+```bash
+make preflight
+```
 
-- "Add validation" → write tests for invalid inputs, then make them pass
-- "Fix the bug" → write a test that reproduces it, then make it pass
-- "Refactor X" → ensure tests pass before and after
+Which runs, in order: `lint` → `test` → `check:openapi` → `check:parity`
+→ `check:skills` → `check:staged`. A green preflight means:
+- Every chi route has a corresponding OpenAPI path and vice versa
+  (`backend/internal/app/contract_test.go`).
+- Every required schema field is referenced in its mobile DTO
+  (`backend/cmd/check-dto-drift`).
+- Every JSON-returning spec path has a web Zod schema + mobile DTO mapping
+  (`backend/cmd/check-parity`).
+- Every exemplar path cited in a SKILL.md still exists and still contains
+  the claimed symbol (`scripts/check-skills.sh`).
+- Every domain error is mapped to an HTTP envelope
+  (`error_envelope_test.go`).
+- No untracked files — `git status --porcelain` is empty.
 
----
+If you add a rule to a skill, consider whether a gate can enforce it. If
+yes, add the gate. Prose-only rules drift.
 
-## Stack
-
-- **Backend**: Go (chi + GORM + PostgreSQL) — see `backend/CLAUDE.md`
-- **Frontend**: Next.js (App Router, TypeScript, Tailwind) — see `web/CLAUDE.md`
-- **Mobile**: Flutter (Dart, Riverpod, Dio) — see `mobile/CLAUDE.md`
-
-## Architecture
-
-Ports & Adapters (hexagonal). Inner layers never import outer layers — violations are bugs.
+## Architecture invariants (hexagonal)
 
 | Layer | Rule |
 |-------|------|
 | `domain/` | Zero framework imports. Pure entities, interfaces, errors. |
-| `service/` or `usecase/` | Imports domain only. Business logic. |
+| `service/` | Imports domain only. Business logic. |
 | `adapter/` | Handlers, persistence, DTOs. Imports domain + service. |
 | `infra/` | Config, DB, external services. Outermost ring. |
 
-## Build & Run
+Inner layers never import outer layers. This is enforced by convention,
+caught in review.
 
-```bash
-make setup        # First-time: infra, deps, .env, migrations, JWT keys
-make dev          # Backend (8000) + web (3000)
-make test:backend # Go tests with race detector
-make test:web     # Vitest
-make test:mobile  # Flutter tests
-make gen:mobile   # Required after editing lib/l10n/*.arb (flutter gen-l10n)
-make check:openapi # Verify mobile DTOs stay in sync with OpenAPI spec
-make preflight    # Every gate a PR must pass (lint + test + check:openapi)
-```
+## API contract workflow (one sentence)
 
-## Auth Model
+Edit `backend/api/openapi.yaml` first → run `make gen:openapi` → implement
+handler using generated types → update web Zod schema + mobile DTO (if
+needed) → `make preflight`. The skills cover the per-stack mechanics.
 
-- Backend owns session state (single source of truth)
-- Short-lived access tokens (15min) + refresh tokens (7d) in sessions table
-- Google OAuth (web: server-side flow, mobile: ID token via `/auth/mobile/google`)
-- Magic links (web: redirect flow, mobile: `/auth/mobile/verify` returns JSON)
-- `DEV_BYPASS_AUTH=true` (dev only): skips auth, injects `dev@initium.local`
+## Auth model
 
-## API Contract
+- Backend owns session state. Short-lived access tokens (15min) + refresh
+  tokens (7d) in the `sessions` table.
+- Google OAuth — web: server-side redirect flow; mobile: ID token POSTed
+  to `/api/auth/mobile/google`.
+- Magic links — web: `/verify` redirects with cookies; mobile:
+  `/api/auth/mobile/verify` returns JSON.
+- `DEV_BYPASS_AUTH=true` (dev only) injects `dev@initium.local`. Release
+  builds hard-fail if the flag is on.
 
-`backend/api/openapi.yaml` is the canonical spec. After editing it, run `make gen:openapi`:
+## Observability (shipped vs opt-in)
 
-- `backend/internal/gen/api/types.gen.go` — Go types via `oapi-codegen` (pinned in `backend/go.mod` as a tool dependency; invoked via `go tool oapi-codegen`). **Every handler uses these generated types for request + response**; see `backend/internal/adapter/handler/user.go` for the canonical shape. Domain entities in `internal/domain/` remain hand-written.
-- `web/src/lib/api-types.ts` — TypeScript types via `openapi-typescript`. Existing Zod schemas in `lib/schemas.ts` remain the runtime validator; cross-check against generated types during review.
-- Mobile DTOs in `mobile/lib/data/remote/dto/` stay **hand-written** — the template does NOT use `build_runner` / `json_serializable` / `freezed`. `make check:openapi` verifies every required schema field is referenced in the corresponding Dart class (manifest at `mobile/tool/dto_manifest.yaml`). Also run `make gen:mobile` (= `flutter gen-l10n`) after editing `lib/l10n/*.arb`.
+Shipped: `/healthz`, `/readyz`, `/metrics` (Prometheus default collectors),
+slog JSON access log with request IDs.
 
-Every OpenAPI schema used on the wire MUST have a `required:` array — otherwise codegen produces optional fields everywhere and consumers have to guard fields that the backend always returns. **List endpoints use envelope schemas** (`{"resource_name": [...]}`), never bare arrays.
+Opt-in stubs (env vars only, no init code): `SENTRY_DSN` (backend +
+mobile), `NEXT_PUBLIC_SENTRY_DSN` (web), `OTEL_EXPORTER_OTLP_ENDPOINT`.
+Pick one, wire it in the relevant stack's `main.go` / root layout.
 
-## Observability
+## Conventions (cross-cutting)
 
-The template ships opinionated-but-light defaults and leaves vendor choices to the fork author.
-
-**What's wired out of the box:**
-- `GET /healthz` — liveness (no deps), returns `{"status":"ok"}`.
-- `GET /readyz` — readiness, `db.Ping()` with 2s timeout, returns 503 on failure.
-- `GET /metrics` — Prometheus endpoint via `prometheus/client_golang` with default Go runtime + process collectors. Point a Prometheus scraper at it; register your own `prometheus.Counter` / `Histogram` against the default registry to track app metrics.
-- Structured access-log middleware (slog JSON: method, path, status, duration_ms, request_id, remote_ip).
-
-**What's NOT wired (env placeholders + pointers only):**
-- **Sentry** — DSN env vars exist (`SENTRY_DSN` backend+mobile, `NEXT_PUBLIC_SENTRY_DSN` web) but no init code. To enable:
-  - Backend: `go get github.com/getsentry/sentry-go`, call `sentry.Init(sentry.ClientOptions{Dsn: cfg.SentryDSN, Environment: cfg.AppEnv})` in `main.go` before router wiring; add `sentryhttp.New(...).Handle` as a middleware before Recoverer.
-  - Web: `npm i @sentry/nextjs`, follow `npx @sentry/wizard@latest -i nextjs`.
-  - Mobile: `flutter pub add sentry_flutter`, wrap `SentryFlutter.init((opts) { opts.dsn = ...; }, appRunner: () => runApp(...))` in `main.dart`.
-- **OpenTelemetry** — `OTEL_EXPORTER_OTLP_ENDPOINT` env placeholder only. To enable tracing on chi, install `go.opentelemetry.io/contrib/instrumentation/github.com/go-chi/chi/otelchi` and wire at the top of global middleware. Keep it off by default — OTEL config is tedious and vendor-specific.
-
-Pick Sentry OR OTEL, not both, unless you genuinely need span export + error grouping.
-
-## Conventions
-
-- Conventional Commits: `feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`
-- No secrets in version control. Use `.env.example` templates.
-- Parameterized queries only. No string interpolation for SQL.
-- i18n: all user-facing strings localized in en/es/ja (details in platform CLAUDE.md)
-- Theme: three modes — light/dark/system (details in platform CLAUDE.md)
-- Accessibility: required baseline (details in platform CLAUDE.md)
-- Run linters and tests after changes automatically. Never push or open PRs without approval.
+- **Conventional Commits**: `feat:`, `fix:`, `test:`, `refactor:`,
+  `docs:`, `chore:`. Body explains _why_.
+- **No secrets in version control**. Use `.env.example` templates.
+- **Parameterized queries only**. Never string-interpolate SQL.
+- **i18n**: every user-facing string localized in en/es/ja. Per-stack
+  mechanics live in the skill.
+- **Theme**: three modes — light/dark/system.
+- **Accessibility**: required baseline per stack.
+- **Autonomy**: run linters + tests after changes automatically. Never
+  push, merge, or open PRs without explicit approval.

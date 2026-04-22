@@ -22,6 +22,10 @@ class OrdersScreen extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
 
     if (authState is! AuthAuthenticated) {
+      // Belt-and-suspenders: the router redirect in app_router.dart already
+      // sends unauthenticated users to /login, so this branch usually
+      // doesn't fire. Keep it to cover the race during logout while the
+      // screen is still mounted — otherwise we dereference a null user.
       return const Scaffold(body: Center(child: CircularProgressIndicator.adaptive()));
     }
 

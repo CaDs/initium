@@ -153,9 +153,17 @@ func extractClassBody(source, className string) (string, bool) {
 }
 
 // jsonKeyReferenced returns true if the Dart class body references the JSON
-// key as json['name'] or json["name"] — the fromJson pattern used across all
-// hand-written DTOs in this project.
+// key either as:
+//   - json['name'] / json["name"] — the fromJson pattern (response DTOs), or
+//   - 'name': / "name":           — the map-literal pattern (toJson on request DTOs).
+//
+// Request-body DTOs don't need a fromJson; their toJson emits the key via
+// a map literal. Accepting both patterns means the drift check covers
+// request + response DTOs without forcing request classes to carry a
+// decorative fromJson just to satisfy the checker.
 func jsonKeyReferenced(body, name string) bool {
 	return strings.Contains(body, `json['`+name+`']`) ||
-		strings.Contains(body, `json["`+name+`"]`)
+		strings.Contains(body, `json["`+name+`"]`) ||
+		strings.Contains(body, `'`+name+`':`) ||
+		strings.Contains(body, `"`+name+`":`)
 }

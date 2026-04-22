@@ -3,6 +3,21 @@
 Schema changes go through numbered SQL files under `backend/migrations/`.
 **Never** use `gorm.AutoMigrate`.
 
+## Prerequisites
+
+`make db:create` and `make db:migrate` shell out to the `migrate` CLI
+(golang-migrate). Install it once per dev machine:
+
+```bash
+brew install golang-migrate
+# or
+go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+```
+
+If the binary isn't on `PATH`, hand-create the two numbered files under
+`backend/migrations/`: `NNN_descriptive_name.up.sql` and the matching
+`.down.sql`, where `NNN` is one past the highest existing index.
+
 ## Creating a migration
 
 ```bash

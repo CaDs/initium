@@ -87,6 +87,26 @@ extension OrderDtoMapper on OrderDto {
 
 Timestamps parse in the mapper. The domain entity holds `DateTime`, not `String`.
 
+**Request-body DTOs** (e.g. `CreateOrderRequestDto`) need a `toJson()` — that's
+what the runtime sends to the backend. They do NOT need a `fromJson`:
+
+```dart
+// mobile/lib/data/remote/dto/create_order_request_dto.dart
+class CreateOrderRequestDto {
+  final int totalCents;
+
+  CreateOrderRequestDto({required this.totalCents});
+
+  Map<String, dynamic> toJson() => {
+        'total_cents': totalCents,
+      };
+}
+```
+
+`make check:openapi` accepts both patterns (`json['total_cents']` in a
+`fromJson` OR `'total_cents':` in a `toJson` map literal) so request DTOs
+stay minimal.
+
 ## 4. Manifest registration
 
 `mobile/tool/dto_manifest.yaml` — register **every** wire schema the feature
@@ -134,9 +154,10 @@ class OrderRepositoryImpl implements OrderRepository {
   @override
   Future<(Order?, DomainError?)> create(int totalCents) async {
     try {
+      final req = CreateOrderRequestDto(totalCents: totalCents);
       final response = await _client.dio.post(
         '/api/orders',
-        data: {'total_cents': totalCents},
+        data: req.toJson(),
       );
       final dto = OrderDto.fromJson(response.data as Map<String, dynamic>);
       return (dto.toDomain(), null);

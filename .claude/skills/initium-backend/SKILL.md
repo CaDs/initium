@@ -9,6 +9,26 @@ You are editing the Go backend of an Initium fork. This template ships auth,
 sessions, and observability as scaffolding. Features are added on top without
 reinventing the plumbing.
 
+## Gates that will fail your PR
+
+Prose rules drift; these gates don't. Run `make preflight` before
+committing. It fails if any of the following is true:
+
+- A chi route exists without a matching OpenAPI path, or vice versa
+  (`backend/internal/app/contract_test.go`).
+- A domain error sentinel isn't mapped in `respond.go`
+  (`error_envelope_test.go`).
+- A `/api/*` spec path has no consumer in web or mobile code
+  (`make check:parity`).
+- A required schema field is missing from its hand-written mobile DTO
+  (`make check:openapi`).
+- An exemplar path cited in this skill no longer contains its
+  `<!-- expect: symbol -->` annotation (`make check:skills`).
+- `git status --porcelain` is non-empty after the run (`make check:staged`).
+
+If you add a convention to this skill, ask whether a gate can enforce it.
+If yes, add the gate. If no, the convention will drift.
+
 ## Architecture (strict — violations are bugs)
 
 ```
@@ -81,6 +101,12 @@ changing any endpoint:
 
 Full workflow: `docs/OPENAPI.md`.
 
+**Cross-stack completeness**: backend endpoints almost always imply
+matching web/mobile UI. If you add `/api/notes`, a web Zod schema and/or
+mobile DTO should land with it. `make check:parity` fails if a spec path
+has no consumer in `web/src` or `mobile/lib` — treat that as a real
+signal, not a lint noise.
+
 ## Error handling
 
 All handlers route errors through `handler.Error(w, r, err)` in
@@ -108,6 +134,33 @@ is not mapped.
 - Error wrapping: `fmt.Errorf("loading user: %w", err)`. Never return naked `err`
   when there's meaningful context to add.
 - Goroutines: use `errgroup` or explicit cancellation. Never fire-and-forget.
+- Graceful shutdown lives in `infra/server.go` via `signal.NotifyContext` —
+  new background workers (cron, worker pools) must register their `Close()`
+  callback with `infra.ServeHTTP` so SIGINT drains cleanly.
+
+## Auth endpoints reference
+
+All routes mounted under `/api`. Authentication column reflects runtime gate,
+not spec visibility.
+
+| Method | Path | Auth | Purpose |
+|--------|------|------|---------|
+| GET | `/api/auth/google` | No | Redirect to Google consent |
+| GET | `/api/auth/google/callback` | No | Exchange code, set cookies |
+| POST | `/api/auth/magic-link` | No | Send magic link email (rate limited) |
+| GET | `/api/auth/verify` | No | Verify magic link token (browser) |
+| POST | `/api/auth/mobile/google` | No | Verify mobile ID token |
+| POST | `/api/auth/mobile/verify` | No | Verify mobile magic-link token (JSON) |
+| POST | `/api/auth/refresh` | refresh cookie or body | Issue new token pair |
+| POST | `/api/auth/logout` | Yes | Revoke current session |
+| POST | `/api/auth/logout-all` | Yes | Revoke all sessions for user |
+| GET | `/api/me` | Yes | Current user profile |
+| PATCH | `/api/me` | Yes | Update profile |
+| GET | `/api/admin/ping` | Yes + admin role | Admin-role liveness check |
+| GET | `/healthz` | No | Process liveness |
+| GET | `/readyz` | No | DB-reachable readiness |
+| GET | `/metrics` | No | Prometheus scrape |
+| GET | `/_debug/routes` | No | Dev-only route table (omitted when `APP_ENV=production`) |
 
 ## Testing
 

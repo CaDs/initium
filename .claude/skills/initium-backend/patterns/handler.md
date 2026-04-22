@@ -55,6 +55,22 @@ func (h *OrdersHandler) Create(w http.ResponseWriter, r *http.Request) {
 - No SQL, no GORM, no third-party API calls in handlers. Those live in services
   or repos.
 
+## List responses — pre-allocate the slice
+
+Handlers that return a list envelope MUST construct the items slice with
+`make([]api.Foo, 0, len(domainItems))`, never `var x []api.Foo`. A nil
+slice JSON-encodes to `null`, which breaks every client's list-type
+assumption (Zod schemas, Dart `List<Foo>` casts). Regression-test with
+`assert.Contains(body, `"foos":[]`)` for the empty-list case.
+
+```go
+apiOrders := make([]api.Order, 0, len(orders)) // not `var apiOrders []api.Order`
+for _, o := range orders {
+    apiOrders = append(apiOrders, toAPIOrder(o))
+}
+JSON(w, r, http.StatusOK, api.OrderList{Orders: apiOrders})
+```
+
 ## Converting domain → api response type
 
 For types where the domain representation differs from the wire (string IDs,

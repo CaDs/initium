@@ -10,6 +10,28 @@ auth (Google + magic link), session cookies, i18n (en/es/ja), theme (light/dark/
 system), and a Zod-validated API client — all minimal, unstyled, ready to be
 skinned by the fork.
 
+> **This is NOT the Next.js you know.** App Router semantics, Server Actions,
+> and `useActionState` have moved since Next 13. If a pattern you remember
+> compiles but feels off, check `node_modules/next/dist/docs/` or the
+> exemplars below before shipping.
+
+## Gates that will fail your PR
+
+Run `make preflight` before committing. It fails if any of the following
+is true:
+
+- A `/api/*` spec path has no consumer in this codebase
+  (`make check:parity`).
+- An exemplar path cited in this skill no longer contains its
+  `<!-- expect: symbol -->` annotation (`make check:skills`).
+- `npm run lint`, `npm run test`, or `npm run build` fails.
+- `git status --porcelain` is non-empty after the run (`make check:staged`).
+
+The Zod-at-boundary rule (`lib/schemas.ts`) is enforced at runtime, not in
+CI — a page that forgets its Zod schema will 500 the first time the
+backend returns an unexpected shape. The `apiFetch<T>()` wrapper demands
+a Zod schema argument; do not reach around it.
+
 ## Architecture (framework-native, no extra abstractions)
 
 ```
@@ -76,6 +98,12 @@ When an API change lands on the backend:
 
 Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
 
+**Cross-stack completeness**: if your feature requires a new endpoint,
+the backend handler + service + migration must exist before web code
+calls it. A web-only PR that `apiFetch`es a nonexistent endpoint will
+404 silently — `make check:parity` catches the spec side, but not the
+handler side. Pair with the backend change, or explicitly defer.
+
 ## Auth flow (browser)
 
 1. User clicks Google or submits magic-link email.
@@ -123,6 +151,25 @@ Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
 - Unit test: `web/src/__tests__/MagicLinkForm.test.tsx` <!-- expect: MagicLinkForm -->
 
 See also: `patterns/server-action.md`, `patterns/api-fetch.md`, `patterns/component.md`.
+
+## Gotchas
+
+- **Middleware fast-path flash**: `middleware.ts` checks cookie presence only
+  (fast). Server Components that fetch user data must treat a failed
+  `/api/me` as `redirect("/login")`, not an error boundary — otherwise the
+  page shell briefly shows before the redirect fires.
+- **OAuth callback is backend-only**: the browser calls `/api/auth/google`
+  on the backend; the backend handles the full OAuth handshake + state
+  validation and sets cookies on the final redirect. **There is no
+  `/api/auth/google/callback` Route Handler in `web/src/app/api/`** — don't
+  add one.
+- **`DEV_BYPASS_AUTH` is server-only.** No `NEXT_PUBLIC_` prefix. Read it
+  only in middleware / Server Components. Release builds must never have
+  it true — it's gated in `backend/internal/infra/config/`.
+- **Base URL split**: `NEXT_PUBLIC_API_URL` for client components,
+  `API_URL` for server components. `lib/api.ts` picks the right one.
+  Production builds require one or the other — `npm run build` fails
+  silently during static page generation otherwise.
 
 ## Parity
 

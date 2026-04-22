@@ -10,12 +10,26 @@ You are editing the Flutter app of an Initium fork. This template ships auth
 Dio + refresh-token serialization, i18n (en/es/ja), and a Material 3 theme with
 light/dark/system switching — all minimal, ready to be skinned.
 
-> **This skill is authoritative.** If `mobile/CLAUDE.md` or the root `CLAUDE.md`
-> contradicts anything here (they may still mention `@JsonSerializable`,
-> `build_runner`, `freezed`, or old `mobile-gen`/`mobile-test` target names),
-> the skill wins. Mobile does NOT use freezed or json_serializable; DTOs are
+> **This skill is the authoritative source for mobile conventions.** Per-directory
+> `CLAUDE.md` / `AGENTS.md` files have been deleted — everything mobile-specific
+> lives here. Mobile does NOT use freezed or json_serializable; DTOs are
 > hand-written. Make targets are namespaced: `make gen:mobile`,
 > `make test:mobile`, `make check:openapi`, `make lint:mobile`.
+
+## Gates that will fail your PR
+
+Run `make preflight` before committing. It fails if any of the following
+is true:
+
+- A `/api/*` spec path has no consumer in this codebase
+  (`make check:parity`).
+- A required schema field is missing from its hand-written mobile DTO
+  (`make check:openapi`) — checker accepts both `fromJson` (response) and
+  `toJson` (request) patterns.
+- An exemplar path cited in this skill no longer contains its
+  `<!-- expect: symbol -->` annotation (`make check:skills`).
+- `dart analyze` or `flutter test` fails.
+- `git status --porcelain` is non-empty after the run (`make check:staged`).
 
 ## Architecture (layered, strict)
 
@@ -103,6 +117,13 @@ When a new API response (or new required field) needs a mobile DTO:
 
 Full workflow: `docs/OPENAPI.md`. Why no full Dart codegen: `docs/OPENAPI.md#why-no-dart-codegen`.
 
+**Cross-stack completeness**: if your feature requires a new endpoint,
+the backend handler + service + migration must exist before mobile
+repositories call it. Editing only `backend/api/openapi.yaml` satisfies
+the drift check but the runtime call will 404. Either pair with the
+backend change (see `initium-backend/patterns/feature-crud.md`) or
+explicitly defer.
+
 ## Auth flow
 
 - Google Sign-In: `google_sign_in` → ID token → `POST /api/auth/mobile/google` →
@@ -132,8 +153,23 @@ Full workflow: `docs/OPENAPI.md`. Why no full Dart codegen: `docs/OPENAPI.md#why
   before referencing them.
 - `flutter gen-l10n` (or `make gen:mobile`) regenerates `app_localizations*.dart`
   after ARB edits.
+- `mobile/l10n.yaml` claims ownership of generator flags — do NOT pass
+  `--template-arb-file` or similar on the CLI when `l10n.yaml` exists;
+  `flutter gen-l10n` rejects them. Edit `l10n.yaml` instead.
 - Parameterized messages use `{name}` syntax with matching `@key` metadata.
 - Access: `AppLocalizations.of(context)!`.
+
+## Platform setup (required before first build)
+
+`mobile/SETUP.md` covers the per-OS credentials the app needs to compile:
+
+- `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) from
+  the Firebase/GCP console.
+- `Info.plist` URL scheme for the Google Sign-In callback.
+- SHA-1 fingerprint registration.
+
+The app will NOT compile without these. If `flutter run` errors on missing
+`GoogleService-Info.plist`, that's the setup step, not a code bug.
 
 ## Testing
 

@@ -52,4 +52,6 @@ lib/providers/     # Riverpod DI wiring and AuthState
 lib/presentation/  # Screens, widgets, go_router navigation
 ```
 
-See [mobile/CLAUDE.md](CLAUDE.md) for detailed architectural rules.
+Detailed architectural rules and conventions live in the
+[`initium-mobile` skill](../.claude/skills/initium-mobile/) — agents load
+it automatically when editing `mobile/lib/**`.

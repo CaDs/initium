@@ -24,6 +24,7 @@ describe("userSchema", () => {
       id: "123",
       name: "Test",
       avatar_url: "",
+      role: "user",
       created_at: "",
     });
     expect(result.success).toBe(false);
@@ -35,6 +36,7 @@ describe("userSchema", () => {
       email: "not-an-email",
       name: "Test",
       avatar_url: "",
+      role: "user",
       created_at: "",
     });
     expect(result.success).toBe(false);

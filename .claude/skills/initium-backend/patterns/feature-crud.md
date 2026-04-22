@@ -79,13 +79,17 @@ type Order struct {
 }
 ```
 
-`backend/internal/domain/errors.go` (if new error cases):
+`backend/internal/domain/errors.go` — add a sentinel **only** if the
+client needs to distinguish this error programmatically. For simple "bad
+input", reuse `domain.ErrInvalidInput`. For "amount must be positive" as
+its own client-facing code, add:
 
 ```go
 var ErrOrderAmountInvalid = errors.New("order amount invalid")
 ```
 
-`backend/internal/domain/port.go` (add interfaces):
+`backend/internal/domain/port.go` — interfaces use **plain Go types only**,
+never `api.*` (keeps `domain/` import-clean):
 
 ```go
 type OrderRepository interface {
@@ -94,13 +98,16 @@ type OrderRepository interface {
 }
 
 type OrderService interface {
-    Create(ctx context.Context, userID string, req api.CreateOrderRequest) (*Order, error)
+    Create(ctx context.Context, userID string, totalCents int) (*Order, error)
     List(ctx context.Context, userID string) ([]*Order, error)
 }
 ```
 
+The handler adapts `api.CreateOrderRequest` into plain args (see §7).
+
 ## 3. Error mapping
 
+Only needed if you added a new sentinel above.
 `backend/internal/adapter/handler/respond.go` (extend `mapError`):
 
 ```go
@@ -130,9 +137,27 @@ make db:create NAME=add_orders_table
 
 Fill in the `.up.sql` / `.down.sql` pair. Never use `gorm.AutoMigrate`.
 
+`make db:create` calls the `migrate` CLI (golang-migrate). If not
+installed: `brew install golang-migrate` or
+`go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest`. If
+the binary still isn't on PATH, hand-create two numbered files under
+`backend/migrations/` (`NNN_name.up.sql` / `.down.sql`).
+
+The schema uses `DEFAULT gen_random_uuid()` for `id` columns:
+
+```sql
+CREATE TABLE orders (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id    UUID NOT NULL REFERENCES users(id),
+    total_cents INTEGER NOT NULL CHECK (total_cents > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
 ## 6. Service
 
-`backend/internal/service/order.go`:
+`backend/internal/service/order.go`. Takes **plain args**, not
+`api.CreateOrderRequest`. Keeps `domain/` import-clean.
 
 ```go
 type OrderService struct {
@@ -141,22 +166,26 @@ type OrderService struct {
 
 func NewOrderService(orders domain.OrderRepository) *OrderService { ... }
 
-func (s *OrderService) Create(ctx context.Context, userID string, req api.CreateOrderRequest) (*domain.Order, error) {
-    if req.TotalCents <= 0 {
-        return nil, domain.ErrOrderAmountInvalid
+func (s *OrderService) Create(ctx context.Context, userID string, totalCents int) (*domain.Order, error) {
+    if totalCents <= 0 {
+        return nil, domain.ErrInvalidInput
     }
     o := &domain.Order{
-        ID:         uuid.NewString(),
         UserID:     userID,
-        TotalCents: req.TotalCents,
-        CreatedAt:  time.Now().UTC(),
+        TotalCents: totalCents,
     }
+    // ID + CreatedAt assigned by Postgres (DEFAULT gen_random_uuid() / now()).
+    // The repo copies them back into `o` after INSERT.
     if err := s.orders.Save(ctx, o); err != nil {
         return nil, fmt.Errorf("saving order: %w", err)
     }
     return o, nil
 }
 ```
+
+**IDs are assigned by Postgres via `DEFAULT gen_random_uuid()`.** Services
+never call `uuid.NewString()`. The repo's `Save` copies the DB-assigned
+ID back into the domain entity after INSERT — see `user_repo.go`.
 
 Service test at `backend/internal/service/order_test.go` — table-driven,
 mock repo, `t.Parallel()`.
@@ -177,7 +206,8 @@ func (h *OrderHandler) Create(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    o, err := h.orders.Create(r.Context(), userID, req)
+    // Handler adapts the generated request type into plain service args.
+    o, err := h.orders.Create(r.Context(), userID, req.TotalCents)
     if err != nil {
         Error(w, r, err)
         return
@@ -195,6 +225,9 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    // Pre-allocate with len(orders) so JSON emits "orders":[] for zero
+    // items, not "orders":null. A nil slice marshals to null, which
+    // breaks every client's list-type assumption.
     apiOrders := make([]api.Order, 0, len(orders))
     for _, o := range orders {
         apiOrders = append(apiOrders, toAPIOrder(o))
@@ -204,7 +237,9 @@ func (h *OrderHandler) List(w http.ResponseWriter, r *http.Request) {
 ```
 
 Add a converter `toAPIOrder(*domain.Order) api.Order` for UUID / time
-conversions, like `writeUser` in `user.go`.
+conversions, like `writeUser` in `user.go`. `writeUser` returns via
+`JSON(...)` directly and can 500 on a bad UUID; follow that shape for any
+response that needs error handling on conversion.
 
 Handler test at `order_test.go` — use `withUser()` helper from
 `patterns/test.md` to seed `middleware.UserIDKey`.
@@ -214,15 +249,25 @@ Handler test at `order_test.go` — use `withUser()` helper from
 `backend/internal/app/router.go` — add to `RouterDeps` and register the route
 inside the protected `r.Group` that already applies `middleware.Auth`.
 
+`backend/internal/app/contract_test.go` — both `TestRouter_MatchesOpenAPISpec`
+and `TestRouter_NoDebugRoutesInProduction` construct their own `RouterDeps{}`;
+add the new handler field to both (nil is fine — the tests don't invoke
+handlers).
+
 `backend/cmd/server/main.go` — construct `OrderRepo`, `OrderService`,
 `OrderHandler` and pass them into `RouterDeps`.
 
 ## 9. Verify
 
 ```bash
-make lint:backend
+make preflight    # lint + test + check:openapi + check:parity + check:skills + check:staged
+```
+
+Or run the individual gates:
+```bash
 make test:backend          # contract test passes = route↔spec parity
 make check:openapi         # DTO drift still clean
+make check:parity          # every /api/ path has a client consumer
 ```
 
 ## 10. Parity

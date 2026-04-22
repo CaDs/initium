@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# preflight.sh — all gates a PR must pass, same order as CI.
-# Runs lint, fast tests, and OpenAPI contract check.
+# preflight.sh — every gate a PR must pass, same order CI runs them.
+# Designed for agent self-check: run this before declaring a feature done.
 
 set -euo pipefail
 
@@ -19,7 +19,13 @@ make test
 step "check:openapi (dart DTO drift)"
 make check:openapi
 
-step "check:skills (exemplar path drift)"
+step "check:parity (every /api/ spec path has a consumer)"
+make check:parity
+
+step "check:skills (exemplar path + symbol drift)"
 bash scripts/check-skills.sh
+
+step "check:staged (no untracked or unstaged files)"
+bash scripts/check-staged.sh
 
 green "preflight PASSED"
