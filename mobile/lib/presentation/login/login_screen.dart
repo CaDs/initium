@@ -28,23 +28,35 @@ class LoginScreen extends ConsumerWidget {
           const DevModeBanner(),
           Expanded(
             child: SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                keyboardDismissBehavior:
-                    ScrollViewKeyboardDismissBehavior.onDrag,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const GoogleSignInButton(),
-                    const SizedBox(height: 16),
-                    const MagicLinkForm(),
-                    if (authState is AuthError) ...[
-                      const SizedBox(height: 16),
-                      _ErrorBanner(
-                        message: _localizeError(authState.message, l10n),
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const GoogleSignInButton(),
+                            const SizedBox(height: 12),
+                            const MagicLinkForm(),
+                            if (authState is AuthError) ...[
+                              const SizedBox(height: 16),
+                              _ErrorBanner(
+                                message:
+                                    _localizeError(authState.message, l10n),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -26,6 +26,16 @@ class HomeScreen extends ConsumerWidget {
 
     final user = authState.user;
 
+    final rows = <_ProfileRow>[
+      _ProfileRow(label: l10n.labelEmail, value: user.email),
+      _ProfileRow(
+        label: l10n.labelName,
+        value: user.name.isNotEmpty ? user.name : '—',
+      ),
+      _ProfileRow(label: l10n.labelRole, value: user.role),
+      _ProfileRow(label: l10n.labelUserId, value: user.id, mono: true),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.appName),
@@ -36,23 +46,43 @@ class HomeScreen extends ConsumerWidget {
         children: [
           const DevModeBanner(),
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _ProfileRow(label: l10n.labelEmail, value: user.email),
-                _ProfileRow(
-                  label: l10n.labelName,
-                  value: user.name.isNotEmpty ? user.name : '—',
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Column(
+                          children: [
+                            for (var i = 0; i < rows.length; i++) ...[
+                              if (i > 0) const Divider(height: 1),
+                              rows[i],
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () =>
+                            ref.read(authProvider.notifier).logout(),
+                        icon: const Icon(Icons.logout),
+                        label: Text(l10n.logout),
+                      ),
+                    ),
+                  ],
                 ),
-                _ProfileRow(label: l10n.labelRole, value: user.role),
-                _ProfileRow(label: l10n.labelUserId, value: user.id),
-                const SizedBox(height: 24),
-                OutlinedButton.icon(
-                  onPressed: () => ref.read(authProvider.notifier).logout(),
-                  icon: const Icon(Icons.logout),
-                  label: Text(l10n.logout),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -62,15 +92,26 @@ class HomeScreen extends ConsumerWidget {
 }
 
 class _ProfileRow extends StatelessWidget {
-  const _ProfileRow({required this.label, required this.value});
+  const _ProfileRow({
+    required this.label,
+    required this.value,
+    this.mono = false,
+  });
+
   final String label;
   final String value;
+  final bool mono;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      fontFamily: mono ? 'monospace' : null,
+      fontSize: mono ? 12 : null,
+    );
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Semantics(
         label: '$label: $value',
         child: Row(
@@ -86,7 +127,7 @@ class _ProfileRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Text(value, style: theme.textTheme.bodyMedium),
+              child: Text(value, style: valueStyle),
             ),
           ],
         ),

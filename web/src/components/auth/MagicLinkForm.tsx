@@ -24,14 +24,18 @@ export default function MagicLinkForm() {
 
   if (state.ok) {
     return (
-      <p role="status" aria-live="polite">
+      <p
+        role="status"
+        aria-live="polite"
+        className="text-sm text-foreground"
+      >
         {t("sent")}
       </p>
     );
   }
 
   return (
-    <form action={action}>
+    <form action={action} className="space-y-3">
       <label htmlFor="magic-link-email" className="sr-only">
         {t("placeholder")}
       </label>
@@ -43,12 +47,23 @@ export default function MagicLinkForm() {
         required
         aria-describedby={hasError ? "magic-link-error" : undefined}
         aria-invalid={hasError}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
       />
-      <button type="submit" disabled={isPending} aria-busy={isPending}>
+      <button
+        type="submit"
+        disabled={isPending}
+        aria-busy={isPending}
+        className="inline-flex items-center justify-center w-full rounded-md bg-accent text-accent-foreground px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+      >
         {isPending ? t("sending") : t("submit")}
       </button>
       {hasError && (
-        <p id="magic-link-error" role="alert" aria-live="polite">
+        <p
+          id="magic-link-error"
+          role="alert"
+          aria-live="polite"
+          className="text-sm text-error"
+        >
           {state.message}
         </p>
       )}
