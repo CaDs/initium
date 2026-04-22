@@ -39,9 +39,13 @@ await ref.read(authProvider.notifier).loginWithGoogle(idToken);
 
 ## Rules
 
-- `authProvider` is imported from `providers/api_provider.dart` (not
-  `auth_provider.dart`). The provider lives next to the Dio/API wiring; the
-  `AuthState` types live next to the notifier.
+- `authProvider` (StateNotifierProvider) is declared in
+  `providers/api_provider.dart`. The `AuthState` sealed class and its variants
+  (`AuthLoading`, `AuthAuthenticated`, `AuthUnauthenticated`, `AuthError`) and
+  the `AuthNotifier` class live in `providers/auth_provider.dart`.
+- **Screens that read `authProvider` must import BOTH files** — the provider
+  from `api_provider.dart`, the `AuthState` variants from `auth_provider.dart`
+  (so pattern matching resolves). Copying either import alone will not compile.
 - Match on variants with `switch` + pattern matching, not nullable checks.
 - Never store `AuthState` in a domain entity. Never pass it to a repository.
   Only UI code reads it.

@@ -14,11 +14,29 @@ import type { User } from "@/lib/types";
 const result = await apiFetch<User>("/api/me", {}, userSchema);
 
 if (!result.ok) {
-  // handle error — result.error is string
-  redirect("/login");
+  // result.error is an ApiError object: { code, message, request_id? }.
+  // For auth-guarded fetches, redirect on UNAUTHORIZED; surface other codes
+  // via an error boundary or inline error UI rather than bouncing to /login.
+  if (result.error.code === "UNAUTHORIZED") redirect("/login");
+  throw new Error(result.error.message);
 }
 
 // result.data is User (validated)
+```
+
+## List endpoints use envelopes
+
+Initium list endpoints wrap arrays in an envelope object (see `NoteList` /
+`RouteList` in `backend/api/openapi.yaml`). The Zod schema and `apiFetch<T>`
+type must match the envelope, not a bare array:
+
+```ts
+// correct
+const listSchema = z.object({ notes: z.array(noteSchema) });
+const result = await apiFetch<{ notes: Note[] }>("/api/notes", {}, listSchema);
+
+// wrong — will Zod-fail at runtime and land you on /login forever
+const listSchema = z.array(noteSchema);
 ```
 
 ## Rules

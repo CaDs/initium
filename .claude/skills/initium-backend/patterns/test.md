@@ -63,3 +63,52 @@ func TestAuthService_VerifyMagicLink_TokenUsed_ReturnsConflict(t *testing.T) {
 "no /_debug routes in production" guarantee. If it fails, either your new
 handler is missing from the OpenAPI spec or vice versa. Do not add to the
 `excludedPaths` list without a strong justification.
+
+The walker strips trailing `/*` from chi routes (see `contract_test.go:70`).
+Paths with URL params like `/api/notes/{id}` must appear in `openapi.yaml`
+using `{id}` syntax (matches chi's `{id}` pattern directly).
+
+## Testing an authenticated handler
+
+The `middleware.Auth` chain seeds `middleware.UserIDKey` into the request
+context. Handler tests must inject it manually via a small helper:
+
+```go
+func withUser(r *http.Request, userID string) *http.Request {
+    ctx := context.WithValue(r.Context(), middleware.UserIDKey, userID)
+    return r.WithContext(ctx)
+}
+
+func TestUserHandler_GetProfile_ReturnsUser(t *testing.T) {
+    t.Parallel()
+
+    svc := &mockUserService{
+        getProfileFn: func(_ context.Context, id string) (*domain.User, error) {
+            return &domain.User{
+                ID:    id,
+                Email: "dev@example.com",
+                Name:  "Dev",
+                Role:  "user",
+            }, nil
+        },
+    }
+    h := NewUserHandler(svc)
+
+    req := withUser(httptest.NewRequest(http.MethodGet, "/api/me", nil), "00000000-0000-0000-0000-000000000001")
+    rec := httptest.NewRecorder()
+    h.GetProfile(rec, req)
+
+    require.Equal(t, http.StatusOK, rec.Code)
+
+    var resp api.User
+    require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+    assert.Equal(t, "dev@example.com", string(resp.Email))
+    assert.Equal(t, api.UserRole("user"), resp.Role)
+}
+```
+
+- Seed a valid UUID string — `writeUser` parses it via `uuid.Parse` and will
+  500 if invalid.
+- Decode the response into the generated `api.*` type, not `map[string]any`.
+  That's the whole point of the typed response: tests assert on the wire
+  contract.

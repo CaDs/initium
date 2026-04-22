@@ -44,8 +44,19 @@ messages/{en,es,ja}.json  Translations. Add keys to ALL three.
   Server Components.
 - Cookie flags: `httpOnly` + `Secure` (prod) + `SameSite=Lax`. Set in `lib/session.ts`.
 - TypeScript strict. No `any`. Use `unknown` + type guards.
+- **Zod v4 is pinned.** Use `.issues` (not `.errors`), `z.email()` (not
+  `z.string().email()`), `z.string().datetime()` for timestamp fields.
 - Use semantic Tailwind tokens: `bg-background`, `text-foreground`, `bg-card`,
-  `text-muted`, `border-border`, `bg-accent`. Never hardcoded `text-gray-600`.
+  `text-muted`, `border-border`, `bg-accent`, `bg-accent-foreground`,
+  `text-error`. Never hardcoded `text-gray-600`.
+- **When adding a new authenticated route**: update `middleware.ts`
+  `PROTECTED_PATHS` + the `config.matcher`, AND add a nav link in
+  `components/shared/Nav.tsx` with a `nav.*` translation key in all three
+  locale files. Without the nav link, users can't reach the page without
+  typing the URL.
+- **Staging new files in a PR**: `git add -A` catches new files in `actions/`,
+  `components/`, ARB keys, and schemas. A stale `git diff` that misses
+  untracked files is the most common "forgot half the feature" failure mode.
 
 ## The contract-first workflow
 
@@ -55,8 +66,12 @@ When an API change lands on the backend:
 2. Someone runs `make gen:openapi` → regenerates `web/src/lib/api-types.ts`.
 3. Update `web/src/lib/schemas.ts` to add a Zod schema for the new response
    (or extend an existing one). Zod remains the runtime guard; generated
-   types are the compile-time check.
-4. Server Components / Server Actions call the endpoint via `apiFetch<T>()`
+   types are the compile-time check. Also update `web/src/lib/types.ts` if
+   you use a hand-written TypeScript alias alongside the generated one.
+4. **List endpoints use envelope objects** (e.g. `NoteList { notes: Note[] }`).
+   Zod schema and `apiFetch<T>` generic must match the envelope, not a bare
+   array — see `patterns/api-fetch.md` for the pattern.
+5. Server Components / Server Actions call the endpoint via `apiFetch<T>()`
    with the Zod schema.
 
 Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
@@ -74,8 +89,10 @@ Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
 
 ## i18n
 
-- Server Components: `useTranslations('namespace')` from `next-intl`.
-- Client Components: same hook (works via `NextIntlClientProvider` in layout).
+- **Server Components**: `await getTranslations('namespace')` from
+  `next-intl/server`. Async. This is what `Nav.tsx` and `home/page.tsx` use.
+- **Client Components**: `useTranslations('namespace')` from `next-intl`.
+  Sync. Works via `NextIntlClientProvider` in the root layout.
 - Locale stored in `locale` cookie; switched via `LocaleSwitcher`.
 - **Add new keys to ALL three locale files (en, es, ja) before using.**
   Otherwise missing-key hydration warnings on non-en locales.
@@ -98,12 +115,12 @@ Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
 
 ## Canonical exemplars (open these when unsure)
 
-- Server Action: `web/src/actions/auth.ts` — form state, Zod validation, toast-friendly returns.
-- API fetcher: `web/src/lib/api.ts` — `apiFetch<T>()` with Zod.
-- Session guard: `web/src/lib/session.ts`, `web/src/middleware.ts`.
-- Protected Server Component: `web/src/app/home/page.tsx`.
-- Form component: `web/src/components/auth/MagicLinkForm.tsx` — useActionState + toast + a11y.
-- Unit test: `web/src/__tests__/MagicLinkForm.test.tsx`.
+- Server Action: `web/src/actions/auth.ts` <!-- expect: requestMagicLink --> — form state, Zod validation, toast-friendly returns.
+- API fetcher: `web/src/lib/api.ts` <!-- expect: apiFetch --> — Zod-validated response, ApiError object on failure.
+- Session guard: `web/src/lib/session.ts` <!-- expect: hasSession -->, `web/src/middleware.ts` <!-- expect: PROTECTED_PATHS -->
+- Protected Server Component: `web/src/app/home/page.tsx` <!-- expect: getTranslations -->
+- Form component: `web/src/components/auth/MagicLinkForm.tsx` <!-- expect: useActionState --> — useActionState + toast + a11y.
+- Unit test: `web/src/__tests__/MagicLinkForm.test.tsx` <!-- expect: MagicLinkForm -->
 
 See also: `patterns/server-action.md`, `patterns/api-fetch.md`, `patterns/component.md`.
 

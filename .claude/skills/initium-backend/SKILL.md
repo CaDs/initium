@@ -55,15 +55,29 @@ changing any endpoint:
 
 1. Edit `backend/api/openapi.yaml` first — path, request schema, response
    schema, every error response referenced back to `#/components/schemas/ErrorResponse`.
-2. Run `make gen:openapi` to regenerate Go types (`internal/gen/api/types.gen.go`)
+   **Every schema used on the wire MUST declare a `required:` array listing
+   every field that is always present.** Missing it produces nullable-everywhere
+   types downstream, forcing every consumer to guard fields the backend always
+   returns.
+2. **List endpoints use envelope schemas**, not bare arrays. A list response is
+   `{"resource_name": [...]}` (e.g. `RouteList { routes: [...] }`). Define both
+   the item schema and the envelope schema, and mark the array `required`.
+   Bare-array responses break every client's Zod/Dart mapper.
+3. Run `make gen:openapi` to regenerate Go types (`internal/gen/api/types.gen.go`)
    and TypeScript types (`web/src/lib/api-types.ts`).
-3. Implement the handler using the generated request/response types.
-4. Register the route in `internal/app/router.go`. The contract test at
+4. Implement the handler using the generated request/response types from
+   `internal/gen/api`. See `patterns/handler.md`. Request decoding uses
+   `DisallowUnknownFields()` so unknown keys 400 instead of silently ignoring.
+5. Register the route in `internal/app/router.go`. The contract test at
    `internal/app/contract_test.go` will fail if the new route is missing from
-   the spec or vice versa.
-5. If a new schema needs a mobile DTO, add it to `mobile/tool/dto_manifest.yaml`
-   and write the hand-coded Dart DTO. `make check:openapi` verifies every
-   required field is referenced.
+   the spec or vice versa. Routes with chi URL params like `/api/notes/{id}`
+   must appear in `openapi.yaml` using `{id}` syntax (chi's `{id}` maps directly).
+   The walker strips trailing `/*`; only add to `excludedPaths` for non-API
+   operational routes (e.g. `/metrics`).
+6. If a new schema needs a mobile DTO, add it to `mobile/tool/dto_manifest.yaml`
+   (register **every** wire schema — envelope, request body, item) and write
+   the hand-coded Dart DTO. `make check:openapi` verifies every required field
+   is referenced.
 
 Full workflow: `docs/OPENAPI.md`.
 
@@ -103,17 +117,22 @@ is not mapped.
 - Name pattern: `TestServiceName_Method_Scenario_Expected`.
 - Handler tests build a test router via `app.NewRouter(app.RouterDeps{...})`
   with stubbed handlers, or construct the handler directly with mocked
-  dependencies — see `adapter/handler/mobile_auth_test.go` for the pattern.
+  dependencies. For unauthenticated endpoints see
+  `adapter/handler/mobile_auth_test.go`; for authenticated endpoints see the
+  `withUser()` helper in `patterns/test.md`.
 
 ## Canonical exemplars (open these when unsure)
 
-- Service: `backend/internal/service/auth.go` — error wrapping, context, testify mocks.
-- Handler: `backend/internal/adapter/handler/auth.go` — request parse, service call, error envelope.
-- Repo: `backend/internal/adapter/persistence/user_repo.go` — GORM impl with mappers.
+- Service: `backend/internal/service/auth.go` <!-- expect: AuthService --> — error wrapping, context, testify mocks.
+- Handler (unauth, request parse with generated type): `backend/internal/adapter/handler/mobile_auth.go` <!-- expect: api.MobileVerifyRequest -->
+- Handler (auth'd, user_id from context): `backend/internal/adapter/handler/user.go` <!-- expect: middleware.GetUserID -->
+- Handler (response type via `api.User` conversion): `backend/internal/adapter/handler/user.go` <!-- expect: writeUser -->
+- Repo: `backend/internal/adapter/persistence/user_repo.go` <!-- expect: GormUserRepo --> — GORM impl with mappers.
 - Migration: `backend/migrations/` — sequential numbered .sql files.
-- Contract test: `backend/internal/app/contract_test.go` — route↔spec parity.
+- Contract test: `backend/internal/app/contract_test.go` <!-- expect: TestRouter_MatchesOpenAPISpec --> — route↔spec parity + `/*` stripping.
+- Error envelope test: `backend/internal/adapter/handler/error_envelope_test.go` <!-- expect: TestError_EnvelopeShape -->
 
-See also: `patterns/handler.md`, `patterns/service.md`, `patterns/migration.md`, `patterns/test.md`.
+See also: `patterns/handler.md`, `patterns/service.md`, `patterns/migration.md`, `patterns/test.md`, `patterns/feature-crud.md`.
 
 ## Parity
 

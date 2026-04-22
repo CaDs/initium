@@ -15,6 +15,7 @@ import (
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
+	"github.com/eridia/initium/backend/internal/gen/api"
 	"github.com/eridia/initium/backend/internal/infra/google"
 )
 
@@ -82,21 +83,21 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 
 // RequestMagicLink sends a magic link email.
 func (h *AuthHandler) RequestMagicLink(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Email string `json:"email"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	var req api.MagicLinkRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
 		Error(w, r, domain.ErrEmailRequired)
 		return
 	}
 
-	if err := h.auth.RequestMagicLink(r.Context(), body.Email); err != nil {
+	if err := h.auth.RequestMagicLink(r.Context(), string(req.Email)); err != nil {
 		slog.Error("magic link request failed", "error", err)
 		Error(w, r, err)
 		return
 	}
 
-	JSON(w, r, http.StatusOK, map[string]string{"message": "magic link sent"})
+	JSON(w, r, http.StatusOK, api.MessageResponse{Message: "magic link sent"})
 }
 
 // VerifyMagicLink validates a magic link token and sets session cookies.
@@ -120,6 +121,9 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 }
 
 // RefreshTokens issues a new token pair using a refresh token.
+//
+// Accepts the refresh token via EITHER the httpOnly `refresh_token` cookie
+// (web browser flow) OR a JSON body matching api.RefreshRequest (mobile flow).
 func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	refreshToken := ""
 	if c, err := r.Cookie("refresh_token"); err == nil {
@@ -127,11 +131,9 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if refreshToken == "" {
-		var body struct {
-			RefreshToken string `json:"refresh_token"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
-			refreshToken = body.RefreshToken
+		var req api.RefreshRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			refreshToken = req.RefreshToken
 		}
 	}
 
@@ -147,9 +149,9 @@ func (h *AuthHandler) RefreshTokens(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.setTokenCookies(w, pair)
-	JSON(w, r, http.StatusOK, map[string]string{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
+	JSON(w, r, http.StatusOK, api.TokenPair{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
 	})
 }
 
@@ -167,7 +169,7 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clearTokenCookies(w)
-	JSON(w, r, http.StatusOK, map[string]string{"message": "logged out"})
+	JSON(w, r, http.StatusOK, api.MessageResponse{Message: "logged out"})
 }
 
 // LogoutAll revokes all sessions for the current user.
@@ -181,7 +183,7 @@ func (h *AuthHandler) LogoutAll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	clearTokenCookies(w)
-	JSON(w, r, http.StatusOK, map[string]string{"message": "all sessions revoked"})
+	JSON(w, r, http.StatusOK, api.MessageResponse{Message: "all sessions revoked"})
 }
 
 func (h *AuthHandler) setTokenCookies(w http.ResponseWriter, pair *domain.TokenPair) {

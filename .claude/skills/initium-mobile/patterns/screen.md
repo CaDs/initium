@@ -48,8 +48,11 @@ class OrdersScreen extends ConsumerWidget {
 - i18n: every user-visible string comes from `l10n.xxx`. Add the key to all
   three ARB files, run `make gen:mobile`.
 - Accessibility: `Semantics` on interactive elements, `tooltip` on
-  `IconButton`s, `autofillHints` on text fields, `semanticsLabel` on icons
-  that aren't decorative.
+  `IconButton`s and icon-bearing buttons, `semanticsLabel` on icons that
+  aren't decorative. Use `autofillHints` on text fields ONLY when a category
+  applies (`AutofillHints.email`, `.password`, `.username`, `.newPassword`,
+  `.oneTimeCode`) — omit for free-form fields like titles, bodies, or search
+  queries.
 - Keep screens flat. Extract a sub-widget (`class _Card extends StatelessWidget`)
   when the same pattern appears twice. Don't extract prematurely.
 
@@ -58,7 +61,10 @@ class OrdersScreen extends ConsumerWidget {
 - New routes go in `presentation/router/app_router.dart`.
 - Decide whether the route needs an auth-based redirect; add it to the
   `redirect:` callback.
-- Use `context.go('/path')` or `context.push('/path')` — never
+- Navigation: `context.push('/path')` for detail / drill-down screens that
+  should preserve the back-stack (home → orders, orders → order detail).
+  `context.go('/path')` for redirects and top-level nav replacements (login →
+  home, logout → login, deep-link handoff in `verify_screen.dart`). Never
   `Navigator.push`.
 
 ## When adding a screen that mirrors a web page

@@ -58,10 +58,12 @@ Ports & Adapters (hexagonal). Inner layers never import outer layers — violati
 ```bash
 make setup        # First-time: infra, deps, .env, migrations, JWT keys
 make dev          # Backend (8000) + web (3000)
-make backend-test # Go tests with race detector
-make web-test     # Vitest
-make mobile-test  # Flutter tests
-make mobile-gen   # Required after DTO changes (build_runner)
+make test:backend # Go tests with race detector
+make test:web     # Vitest
+make test:mobile  # Flutter tests
+make gen:mobile   # Required after editing lib/l10n/*.arb (flutter gen-l10n)
+make check:openapi # Verify mobile DTOs stay in sync with OpenAPI spec
+make preflight    # Every gate a PR must pass (lint + test + check:openapi)
 ```
 
 ## Auth Model
@@ -74,13 +76,13 @@ make mobile-gen   # Required after DTO changes (build_runner)
 
 ## API Contract
 
-`backend/api/openapi.yaml` is the canonical spec. After editing it, run `make gen`:
+`backend/api/openapi.yaml` is the canonical spec. After editing it, run `make gen:openapi`:
 
-- `backend/internal/gen/api/types.gen.go` — Go types via `oapi-codegen` (pinned in `backend/go.mod` as a tool dependency; invoked via `go tool oapi-codegen`). Domain entities in `internal/domain/` remain hand-written; generated types are for wire contracts.
-- `web/src/lib/api-types.ts` — TypeScript types via `openapi-typescript` (devDependency in `web/package.json`). Existing Zod schemas in `lib/schemas.ts` remain the runtime validator; cross-check against generated types during review.
-- Mobile DTOs in `mobile/lib/data/remote/dto/` stay hand-written; there is no first-class OpenAPI → Dart generator that fits the Riverpod/Dio stack. Run `make mobile-gen` after DTO changes (build_runner for `@JsonSerializable`).
+- `backend/internal/gen/api/types.gen.go` — Go types via `oapi-codegen` (pinned in `backend/go.mod` as a tool dependency; invoked via `go tool oapi-codegen`). **Every handler uses these generated types for request + response**; see `backend/internal/adapter/handler/user.go` for the canonical shape. Domain entities in `internal/domain/` remain hand-written.
+- `web/src/lib/api-types.ts` — TypeScript types via `openapi-typescript`. Existing Zod schemas in `lib/schemas.ts` remain the runtime validator; cross-check against generated types during review.
+- Mobile DTOs in `mobile/lib/data/remote/dto/` stay **hand-written** — the template does NOT use `build_runner` / `json_serializable` / `freezed`. `make check:openapi` verifies every required schema field is referenced in the corresponding Dart class (manifest at `mobile/tool/dto_manifest.yaml`). Also run `make gen:mobile` (= `flutter gen-l10n`) after editing `lib/l10n/*.arb`.
 
-Every OpenAPI schema used on the wire should have a `required:` array — otherwise codegen produces optional fields everywhere and consumers have to guard fields that the backend always returns.
+Every OpenAPI schema used on the wire MUST have a `required:` array — otherwise codegen produces optional fields everywhere and consumers have to guard fields that the backend always returns. **List endpoints use envelope schemas** (`{"resource_name": [...]}`), never bare arrays.
 
 ## Observability
 

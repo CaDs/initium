@@ -13,6 +13,7 @@ describe("userSchema", () => {
       email: "test@example.com",
       name: "Test User",
       avatar_url: "https://example.com/avatar.png",
+      role: "user",
       created_at: "2025-01-01T00:00:00Z",
     });
     expect(result.success).toBe(true);

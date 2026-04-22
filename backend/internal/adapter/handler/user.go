@@ -2,10 +2,15 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
+
+	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
+	"github.com/eridia/initium/backend/internal/gen/api"
 )
 
 // UserHandler handles user profile endpoints.
@@ -28,43 +33,50 @@ func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	JSON(w, r, http.StatusOK, userResponse(user))
+	writeUser(w, r, user)
 }
 
 // UpdateProfile updates the current user's name.
 func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserID(r.Context())
 
-	var body struct {
-		Name string `json:"name"`
+	var req api.UpdateProfileRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil {
+		Error(w, r, domain.ErrInvalidInput)
+		return
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if req.Name == nil || len(*req.Name) == 0 || len(*req.Name) > 100 {
 		Error(w, r, domain.ErrInvalidInput)
 		return
 	}
 
-	if len(body.Name) == 0 || len(body.Name) > 100 {
-		Error(w, r, domain.ErrInvalidInput)
-		return
-	}
-
-	user, err := h.users.UpdateProfile(r.Context(), userID, body.Name)
+	user, err := h.users.UpdateProfile(r.Context(), userID, *req.Name)
 	if err != nil {
 		Error(w, r, err)
 		return
 	}
 
-	JSON(w, r, http.StatusOK, userResponse(user))
+	writeUser(w, r, user)
 }
 
-// userResponse is the single source of truth for how a user is serialized on the wire.
-// Keeps GET /api/me and PATCH /api/me responses in lockstep.
-func userResponse(user *domain.User) map[string]any {
-	return map[string]any{
-		"id":         user.ID,
-		"email":      user.Email,
-		"name":       user.Name,
-		"avatar_url": user.AvatarURL,
-		"created_at": user.CreatedAt,
+// writeUser serializes a domain.User into the generated api.User wire type.
+// Used by every endpoint that returns a user (GET /api/me, PATCH /api/me).
+// If the stored ID is not a valid UUID (should never happen), returns 500.
+func writeUser(w http.ResponseWriter, r *http.Request, u *domain.User) {
+	id, err := uuid.Parse(u.ID)
+	if err != nil {
+		slog.Error("invalid user uuid", "id", u.ID, "error", err)
+		Error(w, r, err)
+		return
 	}
+	JSON(w, r, http.StatusOK, api.User{
+		Id:        openapi_types.UUID(id),
+		Email:     openapi_types.Email(u.Email),
+		Name:      u.Name,
+		AvatarUrl: u.AvatarURL,
+		Role:      api.UserRole(u.Role),
+		CreatedAt: u.CreatedAt,
+	})
 }

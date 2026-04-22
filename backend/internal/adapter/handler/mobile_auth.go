@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/eridia/initium/backend/internal/domain"
+	"github.com/eridia/initium/backend/internal/gen/api"
 )
 
 // MobileAuthHandler handles mobile-specific authentication.
@@ -20,15 +21,15 @@ func NewMobileAuthHandler(auth domain.AuthService) *MobileAuthHandler {
 
 // VerifyMagicLink validates a magic link token and returns tokens in the response body (mobile flow).
 func (h *MobileAuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		Token string `json:"token"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Token == "" {
+	var req api.MobileVerifyRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil || req.Token == "" {
 		Error(w, r, domain.ErrTokenInvalid)
 		return
 	}
 
-	user, pair, err := h.auth.VerifyMagicLink(r.Context(), body.Token)
+	user, pair, err := h.auth.VerifyMagicLink(r.Context(), req.Token)
 	if err != nil {
 		slog.Error("mobile magic link verification failed", "error", err)
 		Error(w, r, err)
@@ -36,23 +37,23 @@ func (h *MobileAuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Reque
 	}
 
 	slog.Info("user logged in via mobile magic link", "user_id", user.ID)
-	JSON(w, r, http.StatusOK, map[string]string{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
+	JSON(w, r, http.StatusOK, api.TokenPair{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
 	})
 }
 
 // GoogleIDToken verifies a Google ID token from mobile and returns tokens in the response body.
 func (h *MobileAuthHandler) GoogleIDToken(w http.ResponseWriter, r *http.Request) {
-	var body struct {
-		IDToken string `json:"id_token"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.IDToken == "" {
+	var req api.MobileGoogleRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&req); err != nil || req.IdToken == "" {
 		Error(w, r, domain.ErrInvalidOAuthToken)
 		return
 	}
 
-	user, pair, err := h.auth.VerifyGoogleIDToken(r.Context(), body.IDToken)
+	user, pair, err := h.auth.VerifyGoogleIDToken(r.Context(), req.IdToken)
 	if err != nil {
 		slog.Error("mobile google login failed", "error", err)
 		Error(w, r, err)
@@ -60,8 +61,8 @@ func (h *MobileAuthHandler) GoogleIDToken(w http.ResponseWriter, r *http.Request
 	}
 
 	slog.Info("user logged in via mobile google", "user_id", user.ID)
-	JSON(w, r, http.StatusOK, map[string]string{
-		"access_token":  pair.AccessToken,
-		"refresh_token": pair.RefreshToken,
+	JSON(w, r, http.StatusOK, api.TokenPair{
+		AccessToken:  pair.AccessToken,
+		RefreshToken: pair.RefreshToken,
 	})
 }
