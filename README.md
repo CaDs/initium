@@ -66,40 +66,52 @@ initium/
 
 ## Development Paths
 
+Commands are namespaced — run `make help` for the grouped list. Short summary:
+
 ### Backend
 
 ```bash
-make infra-up                   # Start PostgreSQL + Mailpit
-make backend-dev                # Hot reload via air
-make backend-test               # Run tests
-make backend-lint               # Lint
-make db-migrate                 # Run migrations
-make db-create NAME=add_orders  # Create new migration
+make infra:up                    # Start PostgreSQL + Mailpit
+make dev:backend                 # Hot reload via air
+make test:backend                # Run tests
+make lint:backend                # Lint
+make db:migrate                  # Run migrations
+make db:create NAME=add_orders   # Create new migration
+make db:psql                     # Open psql against the dev database
+make routes                      # Print HTTP route table (dev only)
+make docs                        # Serve Swagger UI on :8088
+make check:openapi               # Verify Dart DTOs match the spec
 ```
 
-API spec: `backend/api/openapi.yaml`
+API spec: `backend/api/openapi.yaml` — see `docs/OPENAPI.md` for the contract-first workflow.
 
 ### Frontend
 
 ```bash
-make infra-up         # Start PostgreSQL + Mailpit
-make backend-run      # Start backend (needed for API)
-make web-dev          # Next.js dev server on port 3000
-make web-test         # Run tests
-make web-lint         # Lint
+make infra:up         # Start PostgreSQL + Mailpit
+make dev:backend      # Start backend (needed for API)
+make dev:web          # Next.js dev server on port 3000
+make test:web         # Run tests
+make lint:web         # Lint
 ```
 
 ### Mobile
 
 ```bash
-make infra-up         # Start PostgreSQL + Mailpit
-make backend-run      # Start backend (needed for API)
-make mobile-dev       # Flutter run with env config
-make mobile-test      # Run tests
-make mobile-gen       # Required after DTO changes
+make infra:up         # Start PostgreSQL + Mailpit
+make dev:backend      # Start backend (needed for API)
+make dev:mobile       # Flutter run with env config
+make test:mobile      # Run tests
+make gen:mobile       # Regenerate Flutter localizations from ARB
 ```
 
 See `mobile/SETUP.md` for Google Sign-In platform configuration.
+
+### Pre-PR
+
+```bash
+make preflight        # lint + test + check:openapi — same gates as CI
+```
 
 ## Architecture
 

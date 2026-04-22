@@ -13,17 +13,66 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
+// Defines values for AdminPingResponseRole.
+const (
+	AdminPingResponseRoleAdmin AdminPingResponseRole = "admin"
+)
+
+// Defines values for HealthStatusStatus.
+const (
+	HealthStatusStatusOk HealthStatusStatus = "ok"
+)
+
+// Defines values for ReadyStatusStatus.
+const (
+	ReadyStatusStatusOk      ReadyStatusStatus = "ok"
+	ReadyStatusStatusUnready ReadyStatusStatus = "unready"
+)
+
 // Defines values for UserRole.
 const (
 	UserRoleAdmin UserRole = "admin"
 	UserRoleUser  UserRole = "user"
 )
 
+// AdminPingResponse defines model for AdminPingResponse.
+type AdminPingResponse struct {
+	Role AdminPingResponseRole `json:"role"`
+}
+
+// AdminPingResponseRole defines model for AdminPingResponse.Role.
+type AdminPingResponseRole string
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
-	Code      string  `json:"code"`
-	Message   string  `json:"message"`
+	// Code Machine-readable error code in SNAKE_UPPER format
+	Code string `json:"code"`
+
+	// Message Human-readable error message (generic for 5xx to avoid leaking internals)
+	Message string `json:"message"`
+
+	// RequestId Correlates client error to server log entry
 	RequestId *string `json:"request_id,omitempty"`
+}
+
+// HealthStatus defines model for HealthStatus.
+type HealthStatus struct {
+	Status HealthStatusStatus `json:"status"`
+}
+
+// HealthStatusStatus defines model for HealthStatus.Status.
+type HealthStatusStatus string
+
+// LandingInfo defines model for LandingInfo.
+type LandingInfo struct {
+	Description string `json:"description"`
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+}
+
+// MagicLinkRequest defines model for MagicLinkRequest.
+type MagicLinkRequest struct {
+	Email openapi_types.Email `json:"email"`
 }
 
 // MessageResponse defines model for MessageResponse.
@@ -31,10 +80,51 @@ type MessageResponse struct {
 	Message string `json:"message"`
 }
 
+// MobileGoogleRequest defines model for MobileGoogleRequest.
+type MobileGoogleRequest struct {
+	IdToken string `json:"id_token"`
+}
+
+// MobileVerifyRequest defines model for MobileVerifyRequest.
+type MobileVerifyRequest struct {
+	Token string `json:"token"`
+}
+
+// ReadyStatus defines model for ReadyStatus.
+type ReadyStatus struct {
+	// Error Present only when status is "unready"
+	Error  *string           `json:"error,omitempty"`
+	Status ReadyStatusStatus `json:"status"`
+}
+
+// ReadyStatusStatus defines model for ReadyStatus.Status.
+type ReadyStatusStatus string
+
+// RefreshRequest defines model for RefreshRequest.
+type RefreshRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RouteEntry defines model for RouteEntry.
+type RouteEntry struct {
+	Method  string `json:"method"`
+	Pattern string `json:"pattern"`
+}
+
+// RouteList defines model for RouteList.
+type RouteList struct {
+	Routes []RouteEntry `json:"routes"`
+}
+
 // TokenPair defines model for TokenPair.
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
+}
+
+// UpdateProfileRequest defines model for UpdateProfileRequest.
+type UpdateProfileRequest struct {
+	Name *string `json:"name,omitempty"`
 }
 
 // User defines model for User.
@@ -56,47 +146,22 @@ type GetApiAuthGoogleCallbackParams struct {
 	State string `form:"state" json:"state"`
 }
 
-// PostApiAuthMagicLinkJSONBody defines parameters for PostApiAuthMagicLink.
-type PostApiAuthMagicLinkJSONBody struct {
-	Email openapi_types.Email `json:"email"`
-}
-
-// PostApiAuthMobileGoogleJSONBody defines parameters for PostApiAuthMobileGoogle.
-type PostApiAuthMobileGoogleJSONBody struct {
-	IdToken string `json:"id_token"`
-}
-
-// PostApiAuthMobileVerifyJSONBody defines parameters for PostApiAuthMobileVerify.
-type PostApiAuthMobileVerifyJSONBody struct {
-	Token string `json:"token"`
-}
-
-// PostApiAuthRefreshJSONBody defines parameters for PostApiAuthRefresh.
-type PostApiAuthRefreshJSONBody struct {
-	RefreshToken *string `json:"refresh_token,omitempty"`
-}
-
 // GetApiAuthVerifyParams defines parameters for GetApiAuthVerify.
 type GetApiAuthVerifyParams struct {
 	Token string `form:"token" json:"token"`
 }
 
-// PatchApiMeJSONBody defines parameters for PatchApiMe.
-type PatchApiMeJSONBody struct {
-	Name *string `json:"name,omitempty"`
-}
-
 // PostApiAuthMagicLinkJSONRequestBody defines body for PostApiAuthMagicLink for application/json ContentType.
-type PostApiAuthMagicLinkJSONRequestBody PostApiAuthMagicLinkJSONBody
+type PostApiAuthMagicLinkJSONRequestBody = MagicLinkRequest
 
 // PostApiAuthMobileGoogleJSONRequestBody defines body for PostApiAuthMobileGoogle for application/json ContentType.
-type PostApiAuthMobileGoogleJSONRequestBody PostApiAuthMobileGoogleJSONBody
+type PostApiAuthMobileGoogleJSONRequestBody = MobileGoogleRequest
 
 // PostApiAuthMobileVerifyJSONRequestBody defines body for PostApiAuthMobileVerify for application/json ContentType.
-type PostApiAuthMobileVerifyJSONRequestBody PostApiAuthMobileVerifyJSONBody
+type PostApiAuthMobileVerifyJSONRequestBody = MobileVerifyRequest
 
 // PostApiAuthRefreshJSONRequestBody defines body for PostApiAuthRefresh for application/json ContentType.
-type PostApiAuthRefreshJSONRequestBody PostApiAuthRefreshJSONBody
+type PostApiAuthRefreshJSONRequestBody = RefreshRequest
 
 // PatchApiMeJSONRequestBody defines body for PatchApiMe for application/json ContentType.
-type PatchApiMeJSONRequestBody PatchApiMeJSONBody
+type PatchApiMeJSONRequestBody = UpdateProfileRequest

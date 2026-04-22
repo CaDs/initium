@@ -11,7 +11,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Health check */
+        /**
+         * Liveness probe (no dependencies)
+         * @description Always returns 200 when the process is up. Does not check database.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -27,9 +30,104 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            status?: string;
-                        };
+                        "application/json": components["schemas"]["HealthStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/readyz": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Readiness probe (checks database connectivity)
+         * @description Returns 200 when the database is reachable, 503 otherwise. Used by Fly.io health checks.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ready */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReadyStatus"];
+                    };
+                };
+                /** @description Not ready */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReadyStatus"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/_debug/routes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all registered HTTP routes (development only)
+         * @description Returns the full chi router table. Mounted only when `APP_ENV != "production"`.
+         *     Used by `make routes` for local discovery. Returns 404 in production.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Route table */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["RouteList"];
+                    };
+                };
+                /** @description Endpoint disabled in production */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -65,11 +163,16 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            name?: string;
-                            description?: string;
-                            version?: string;
-                        };
+                        "application/json": components["schemas"]["LandingInfo"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -89,7 +192,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Redirect to Google OAuth consent screen */
+        /**
+         * Redirect to Google OAuth consent screen (browser flow)
+         * @description Non-JSON response. Sets OAuth state cookie and 307-redirects to Google.
+         */
         get: {
             parameters: {
                 query?: never;
@@ -99,12 +205,21 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Redirect to Google */
+                /** @description Redirect to Google consent screen */
                 307: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -123,7 +238,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Google OAuth callback */
+        /**
+         * Google OAuth callback (browser flow)
+         * @description Non-JSON response. Exchanges authorization code, sets session cookies, 307-redirects to /home.
+         */
         get: {
             parameters: {
                 query: {
@@ -136,12 +254,39 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Redirect to /home with cookies set */
+                /** @description Redirect to /home with session cookies set */
                 307: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Invalid OAuth state or missing code */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description OAuth token exchange failed */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -162,7 +307,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Request magic link email */
+        /**
+         * Request magic link email
+         * @description Rate limited at 10 requests per minute per IP.
+         */
         post: {
             parameters: {
                 query?: never;
@@ -172,10 +320,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        /** Format: email */
-                        email: string;
-                    };
+                    "application/json": components["schemas"]["MagicLinkRequest"];
                 };
             };
             responses: {
@@ -186,6 +331,33 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["MessageResponse"];
+                    };
+                };
+                /** @description Invalid or missing email */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Rate limited */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -203,7 +375,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Verify magic link token */
+        /**
+         * Verify magic link token (browser flow)
+         * @description Non-JSON response. On success, sets session cookies and 307-redirects to /home.
+         */
         get: {
             parameters: {
                 query: {
@@ -215,12 +390,39 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Redirect to /home with cookies set */
+                /** @description Redirect to /home with session cookies set */
                 307: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content?: never;
+                };
+                /** @description Missing or invalid token */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Token already used */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
                 };
             };
         };
@@ -249,11 +451,9 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: {
+            requestBody: {
                 content: {
-                    "application/json": {
-                        refresh_token?: string;
-                    };
+                    "application/json": components["schemas"]["RefreshRequest"];
                 };
             };
             responses: {
@@ -264,6 +464,24 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TokenPair"];
+                    };
+                };
+                /** @description Refresh token missing, expired, or revoked */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -293,9 +511,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        id_token: string;
-                    };
+                    "application/json": components["schemas"]["MobileGoogleRequest"];
                 };
             };
             responses: {
@@ -306,6 +522,33 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TokenPair"];
+                    };
+                };
+                /** @description Missing or malformed id_token */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Invalid Google ID token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -325,7 +568,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Mobile magic link verification (returns JSON tokens) */
+        /** Mobile magic link verification (returns JSON token pair) */
         post: {
             parameters: {
                 query?: never;
@@ -335,9 +578,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        token: string;
-                    };
+                    "application/json": components["schemas"]["MobileVerifyRequest"];
                 };
             };
             responses: {
@@ -348,6 +589,33 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TokenPair"];
+                    };
+                };
+                /** @description Missing or invalid token */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Token already used */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -367,7 +635,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout (revoke session) */
+        /** Logout (revoke current session) */
         post: {
             parameters: {
                 query?: never;
@@ -384,6 +652,24 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["MessageResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -403,7 +689,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Logout all sessions */
+        /** Logout all sessions for this user */
         post: {
             parameters: {
                 query?: never;
@@ -422,8 +708,80 @@ export interface paths {
                         "application/json": components["schemas"]["MessageResponse"];
                     };
                 };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Admin liveness check (requires admin role) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Caller is an admin */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AdminPingResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Insufficient role */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -456,6 +814,24 @@ export interface paths {
                         "application/json": components["schemas"]["User"];
                     };
                 };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         put?: never;
@@ -473,9 +849,7 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": {
-                        name?: string;
-                    };
+                    "application/json": components["schemas"]["UpdateProfileRequest"];
                 };
             };
             responses: {
@@ -488,6 +862,33 @@ export interface paths {
                         "application/json": components["schemas"]["User"];
                     };
                 };
+                /** @description Invalid input */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         trace?: never;
@@ -496,6 +897,32 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        HealthStatus: {
+            /** @enum {string} */
+            status: "ok";
+        };
+        ReadyStatus: {
+            /** @enum {string} */
+            status: "ok" | "unready";
+            /** @description Present only when status is "unready" */
+            error?: string;
+        };
+        LandingInfo: {
+            name: string;
+            description: string;
+            version: string;
+        };
+        RouteList: {
+            routes: components["schemas"]["RouteEntry"][];
+        };
+        RouteEntry: {
+            method: string;
+            pattern: string;
+        };
+        AdminPingResponse: {
+            /** @enum {string} */
+            role: "admin";
+        };
         User: {
             /** Format: uuid */
             id: string;
@@ -503,6 +930,8 @@ export interface components {
             email: string;
             name: string;
             avatar_url: string;
+            /** @enum {string} */
+            role: "user" | "admin";
             /** Format: date-time */
             created_at: string;
         };
@@ -510,12 +939,31 @@ export interface components {
             access_token: string;
             refresh_token: string;
         };
+        MagicLinkRequest: {
+            /** Format: email */
+            email: string;
+        };
+        RefreshRequest: {
+            refresh_token: string;
+        };
+        MobileGoogleRequest: {
+            id_token: string;
+        };
+        MobileVerifyRequest: {
+            token: string;
+        };
+        UpdateProfileRequest: {
+            name?: string;
+        };
         MessageResponse: {
             message: string;
         };
         ErrorResponse: {
+            /** @description Machine-readable error code in SNAKE_UPPER format */
             code: string;
+            /** @description Human-readable error message (generic for 5xx to avoid leaking internals) */
             message: string;
+            /** @description Correlates client error to server log entry */
             request_id?: string;
         };
     };

@@ -21,6 +21,8 @@ jobs:
         run: go vet ./...
       - name: Test
         run: go test -race -count=1 ./...
+      - name: Dart DTO drift check
+        run: go run ./cmd/check-dto-drift
       - name: Vulnerability check
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest

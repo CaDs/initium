@@ -7,6 +7,7 @@ extension UserDtoMapper on UserDto {
         email: email,
         name: name,
         avatarUrl: avatarUrl,
+        role: role,
         createdAt: createdAt,
       );
 }

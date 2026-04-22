@@ -1,0 +1,21 @@
+# Drift-check manifest: maps OpenAPI schema names to hand-written Dart DTOs.
+#
+# The drift checker (`backend/cmd/check-dto-drift`) asserts that every
+# required schema field has a matching `json['snake_case_name']` reference
+# in the target Dart file. If you add/remove/rename a required field in
+# the OpenAPI spec, the check fails until the Dart DTO is updated.
+#
+# To add a new DTO: append an entry below, then run `make gen:openapi` + check.
+
+mappings:
+  - schema: User
+    dart_file: lib/data/remote/dto/user_dto.dart
+    dart_class: UserDto
+
+  - schema: TokenPair
+    dart_file: lib/data/remote/dto/auth_dto.dart
+    dart_class: AuthResponseDto
+
+  - schema: MessageResponse
+    dart_file: lib/data/remote/dto/auth_dto.dart
+    dart_class: MessageResponseDto

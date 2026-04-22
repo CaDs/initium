@@ -5,38 +5,20 @@
   },
   "nav": {
     "brand": "Initium",
-    "dashboard": "Panel",
     "logout": "Cerrar sesión",
     "signIn": "Iniciar sesión"
   },
-  "landing": {
-    "title": "Bienvenido a Initium",
-    "subtitle": "Tu próxima gran idea comienza aquí. Una plantilla moderna y completa lista para prototipar rápidamente.",
-    "cta": "Comenzar"
-  },
   "login": {
     "title": "Iniciar sesión",
-    "subtitle": "Sin contraseñas.",
-    "divider": "o",
     "google": "Iniciar sesión con Google",
     "magicLink": {
       "placeholder": "Ingresa tu correo electrónico",
       "submit": "Enviar enlace mágico",
       "sending": "Enviando...",
       "sent": "¡Revisa tu correo!",
-      "sentDetail": "Se ha enviado un enlace mágico a tu bandeja de entrada.",
       "sentTitle": "Enlace mágico enviado",
       "sentBody": "Revisa tu bandeja de entrada — el enlace expira en 15 minutos."
     }
-  },
-  "home": {
-    "welcome": "Bienvenido de nuevo",
-    "welcomeUser": "¡Bienvenido de nuevo, {name}!",
-    "subtitle": "Esta es tu pantalla de inicio autenticada. Personalízala para tu POC.",
-    "profile": "Tu Perfil",
-    "email": "Correo",
-    "name": "Nombre",
-    "userId": "ID de Usuario"
   },
   "devBanner": {
     "message": "Modo Dev — Sesión como dev@initium.local"
@@ -49,7 +31,6 @@
   "a11y": {
     "skipToMain": "Ir al contenido principal",
     "mainNav": "Navegación principal",
-    "googleIcon": "Logo de Google",
     "loading": "Cargando"
   },
   "errors": {

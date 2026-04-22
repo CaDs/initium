@@ -2,9 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/api_provider.dart';
-import '../landing/landing_screen.dart';
+import '../../providers/auth_provider.dart';
 import '../login/login_screen.dart';
 import '../home/home_screen.dart';
 import '../auth/verify_screen.dart';
@@ -20,29 +19,23 @@ final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isAuthenticated = authState is AuthAuthenticated;
       final isLoading = authState is AuthLoading;
-      final isOnLogin = state.matchedLocation == '/login';
-      final isOnHome = state.matchedLocation == '/home';
-      final isOnVerify = state.matchedLocation == '/auth/verify';
+      final path = state.matchedLocation;
 
       if (isLoading) return null;
-      if (isOnVerify) return null; // Let verify screen handle auth
+      if (path == '/auth/verify') return null; // Let verify screen handle auth
 
-      if (isAuthenticated && isOnLogin) return '/home';
-      if (!isAuthenticated && isOnHome) return '/login';
+      if (isAuthenticated && path == '/login') return '/home';
+      if (!isAuthenticated && path == '/home') return '/login';
 
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const LandingScreen(),
-      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),

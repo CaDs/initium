@@ -4,6 +4,7 @@ class User {
   final String email;
   final String name;
   final String? avatarUrl;
+  final String role;
   final String createdAt;
 
   const User({
@@ -11,6 +12,7 @@ class User {
     required this.email,
     required this.name,
     this.avatarUrl,
+    required this.role,
     required this.createdAt,
   });
 
@@ -19,6 +21,7 @@ class User {
         id: '00000000-0000-0000-0000-000000000001',
         email: 'dev@initium.local',
         name: 'Dev User',
+        role: 'user',
         createdAt: '2026-01-01T00:00:00Z',
       );
 }

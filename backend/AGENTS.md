@@ -38,9 +38,9 @@ api/openapi.yaml             # Canonical API spec
 ## Migrations
 
 ```bash
-make db-migrate              # Run pending migrations
-make db-rollback             # Rollback last migration
-make db-create NAME=xxx      # Create new migration pair
+make db:migrate              # Run pending migrations
+make db:rollback             # Rollback last migration
+make db:create NAME=xxx      # Create new migration pair
 ```
 
 Never use `gorm.AutoMigrate`. Schema changes go through versioned SQL files in `migrations/`.

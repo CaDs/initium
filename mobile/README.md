@@ -9,22 +9,23 @@ Flutter app for the Initium starter template. Targets iOS and Android.
 make dev
 
 # Mobile only (from repo root)
-make mobile-dev
+make dev:mobile
 # Equivalent, from mobile/ directly:
 flutter run --dart-define-from-file=.env
 ```
 
-> `make mobile-dev` boots the iOS Simulator automatically if none is running.
+> `make dev:mobile` boots the iOS Simulator automatically if none is running.
 
 ## Common commands
 
 | Command | What it does |
 |---------|--------------|
-| `make mobile-test` | Run all Flutter unit + widget tests |
-| `make mobile-gen` | Re-run build_runner (required after DTO/freezed changes) |
-| `make mobile-lint` | Static analysis via `dart analyze` |
-| `make mobile-build-apk` | Debug APK for Android |
-| `make mobile-build-ios` | iOS simulator build |
+| `make test:mobile` | Run all Flutter unit + widget tests |
+| `make gen:mobile` | Regenerate Flutter localizations from lib/l10n/*.arb |
+| `make lint:mobile` | Static analysis via `dart analyze` |
+| `make format:mobile` | `dart format` the mobile tree |
+| `make build:mobile:apk` | Debug APK for Android |
+| `make build:mobile:ios` | iOS simulator build |
 
 ## Platform setup
 

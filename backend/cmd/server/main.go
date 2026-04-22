@@ -3,20 +3,14 @@ package main
 import (
 	"context"
 	"log/slog"
-	"net/http"
 	"os"
 	"time"
 
-	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	"github.com/go-chi/httprate"
 	"github.com/joho/godotenv"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
-	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/adapter/persistence"
+	"github.com/eridia/initium/backend/internal/app"
 	"github.com/eridia/initium/backend/internal/infra"
 	"github.com/eridia/initium/backend/internal/infra/config"
 	"github.com/eridia/initium/backend/internal/infra/cron"
@@ -105,67 +99,16 @@ func main() {
 		return u.Role, nil
 	}
 
-	// Router
-	r := chi.NewRouter()
-
-	// Global middleware
-	r.Use(chimiddleware.RealIP)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.AccessLog)
-	r.Use(chimiddleware.Recoverer)
-	r.Use(chimiddleware.RequestSize(1 << 20)) // 1 MiB body limit
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{cfg.AppURL},
-		AllowedMethods:   []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
-
-	// Health / readiness / metrics
-	r.Get("/healthz", handler.Healthz)
-	r.Get("/readyz", handler.Readyz(db))
-	// Prometheus scrape endpoint. Default collectors give Go runtime + process
-	// metrics out of the box; register your own collectors against the default
-	// registry to expose app-level counters/histograms.
-	r.Handle("/metrics", promhttp.Handler())
-
-	// Public routes
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/landing", handler.Landing)
-
-		// Auth routes (rate limited)
-		r.Route("/auth", func(r chi.Router) {
-			r.Use(httprate.LimitByIP(10, time.Minute))
-
-			r.Get("/google", authHandler.GoogleRedirect)
-			r.Get("/google/callback", authHandler.GoogleCallback)
-			r.Post("/magic-link", authHandler.RequestMagicLink)
-			r.Get("/verify", authHandler.VerifyMagicLink)
-			r.Post("/refresh", authHandler.RefreshTokens)
-			r.Post("/mobile/google", mobileAuthHandler.GoogleIDToken)
-			r.Post("/mobile/verify", mobileAuthHandler.VerifyMagicLink)
-		})
-
-		// Protected routes
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(tokenGen, cfg.DevBypassAuth))
-
-			r.Get("/me", userHandler.GetProfile)
-			r.Patch("/me", userHandler.UpdateProfile)
-			r.Post("/auth/logout", authHandler.Logout)
-			r.Post("/auth/logout-all", authHandler.LogoutAll)
-		})
-
-		// Admin-only routes
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(tokenGen, cfg.DevBypassAuth))
-			r.Use(middleware.RequireRole("admin", roleLookup))
-
-			r.Get("/admin/ping", func(w http.ResponseWriter, req *http.Request) {
-				handler.JSON(w, req, http.StatusOK, map[string]string{"role": "admin"})
-			})
-		})
+	r := app.NewRouter(app.RouterDeps{
+		Auth:       authHandler,
+		MobileAuth: mobileAuthHandler,
+		User:       userHandler,
+		TokenGen:   tokenGen,
+		RoleLookup: roleLookup,
+		DB:         db,
+		AppEnv:     cfg.AppEnv,
+		AppURL:     cfg.AppURL,
+		DevBypass:  cfg.DevBypassAuth,
 	})
 
 	slog.Info("configuration loaded",

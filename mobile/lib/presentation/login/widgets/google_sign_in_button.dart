@@ -7,8 +7,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mobile/l10n/app_localizations.dart';
 
 import '../../../providers/api_provider.dart';
-import '../../../ui/app_scaffold.dart';
-import '../../../ui/widgets/app_btn.dart';
 
 /// iOS Client ID from GoogleService-Info.plist.
 /// Set via --dart-define=GOOGLE_IOS_CLIENT_ID=xxx
@@ -18,27 +16,16 @@ const _iosClientId = String.fromEnvironment('GOOGLE_IOS_CLIENT_ID');
 /// Set via --dart-define=GOOGLE_SERVER_CLIENT_ID=xxx
 const _serverClientId = String.fromEnvironment('GOOGLE_SERVER_CLIENT_ID');
 
-/// Google Sign-In button, wonderized to use [AppBtn] + token-driven palette.
 class GoogleSignInButton extends ConsumerWidget {
   const GoogleSignInButton({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
-
-    return SizedBox(
-      width: double.infinity,
-      child: AppBtn.from(
-        onPressed: () => _signIn(context, ref),
-        text: l10n.loginGoogle,
-        semanticLabel: l10n.loginGoogle,
-        isSecondary: true,
-        icon: Icon(Icons.g_mobiledata, size: 26, color: $styles.colors.fg),
-        minimumSize: const Size(double.infinity, 52),
-        border: BorderSide(
-          color: $styles.colors.greySoft.withValues(alpha: 0.6),
-        ),
-      ),
+    return ElevatedButton.icon(
+      onPressed: () => _signIn(context, ref),
+      icon: const Icon(Icons.login),
+      label: Text(l10n.loginGoogle),
     );
   }
 
@@ -66,8 +53,8 @@ class GoogleSignInButton extends ConsumerWidget {
 
       if (idToken == null) {
         if (context.mounted) {
-          _showError(
-              context, 'Failed to get ID token. Check GOOGLE_SERVER_CLIENT_ID.');
+          _showError(context,
+              'Failed to get ID token. Check GOOGLE_SERVER_CLIENT_ID.');
         }
         return;
       }

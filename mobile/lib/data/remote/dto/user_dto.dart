@@ -4,6 +4,7 @@ class UserDto {
   final String email;
   final String name;
   final String? avatarUrl;
+  final String role;
   final String createdAt;
 
   UserDto({
@@ -11,6 +12,7 @@ class UserDto {
     required this.email,
     required this.name,
     this.avatarUrl,
+    required this.role,
     required this.createdAt,
   });
 
@@ -20,6 +22,7 @@ class UserDto {
       email: json['email'] as String,
       name: json['name'] as String,
       avatarUrl: json['avatar_url'] as String?,
+      role: json['role'] as String,
       createdAt: json['created_at'] as String,
     );
   }

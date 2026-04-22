@@ -1,34 +1,19 @@
 {
   "@@locale": "en",
   "appName": "Initium",
-  "landingTitle": "Welcome to Initium",
-  "landingSubtitle": "Your next great idea starts here.",
-  "landingCta": "Get Started",
   "loginTitle": "Sign In",
-  "loginSubtitle": "No passwords needed.",
-  "loginDivider": "or",
   "loginGoogle": "Sign in with Google",
   "loginGoogleSetup": "Google Sign-In: configure google-services.json first",
   "loginMagicPlaceholder": "Enter your email",
   "loginMagicSubmit": "Send Magic Link",
   "loginMagicSending": "Sending...",
   "loginMagicSent": "Check your email!",
-  "loginMagicSentDetail": "A magic link has been sent.",
-  "homeWelcome": "Welcome back!",
-  "homeWelcomeUser": "Welcome back, {name}!",
-  "@homeWelcomeUser": {
-    "placeholders": {
-      "name": { "type": "String" }
-    }
-  },
-  "homeSubtitle": "This is your authenticated home screen.",
-  "homeProfile": "Your Profile",
   "labelEmail": "Email",
   "labelName": "Name",
+  "labelRole": "Role",
   "labelUserId": "User ID",
   "devBanner": "Dev Mode — Logged in as dev@initium.local",
   "logout": "Logout",
-  "dashboard": "Dashboard",
   "themeLight": "Light",
   "themeDark": "Dark",
   "themeSystem": "System",
@@ -36,8 +21,5 @@
   "authMagicLinkFailed": "Magic link verification failed",
   "verifyFailed": "Verification failed",
   "verifyExpiredOrUsed": "The link may have expired or already been used.",
-  "landingSwipeHint": "Swipe up to begin",
-  "loginHeroCaption": "Find your way in.",
-  "verifyCelebration": "Welcome in.",
   "verifyRetry": "Try again"
 }
