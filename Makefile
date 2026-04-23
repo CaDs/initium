@@ -43,8 +43,7 @@ setup: infra\:up ## First-time setup: infra, deps, .env files, migrations, JWT k
 	cd $(WEB_DIR) && npm install
 	cd $(MOBILE_DIR) && flutter pub get
 	$(MAKE) keygen
-	@echo "Waiting for PostgreSQL..."
-	@until docker compose exec -T postgres pg_isready -U initium >/dev/null 2>&1; do sleep 1; done
+	@bash scripts/wait-for-postgres.sh
 	$(MAKE) db\:migrate
 	@echo ""
 	@echo "Setup complete. Edit backend/.env with your Google OAuth credentials."
