@@ -154,6 +154,21 @@ See also: `patterns/server-action.md`, `patterns/api-fetch.md`, `patterns/compon
 
 ## Gotchas
 
+- **Hydration mismatches**: any Client Component that reads `localStorage`,
+  `document`, `window.matchMedia`, or `Date.now()` in a `useState`
+  initializer will render differently on server vs client and trigger a
+  "Hydration failed" error. For anything sourced from an external store
+  that changes per-user or per-device, use `useSyncExternalStore` with a
+  stable `getServerSnapshot` (see `ThemeSwitcher.tsx`). React 19's
+  `react-hooks/set-state-in-effect` ESLint rule also bans the "read in
+  useEffect and setState" fallback — `useSyncExternalStore` is the
+  idiomatic answer.
+- **Inline scripts in the root layout**: raw `<script
+  dangerouslySetInnerHTML>` in JSX triggers a Next 15 warning ("Scripts
+  inside React components are never executed when rendering on the
+  client"). Use `<Script strategy="beforeInteractive">` from `next/script`
+  instead — see `app/layout.tsx` theme bootstrap. `beforeInteractive`
+  runs before hydration, so FOUC prevention still works.
 - **Middleware fast-path flash**: `middleware.ts` checks cookie presence only
   (fast). Server Components that fetch user data must treat a failed
   `/api/me` as `redirect("/login")`, not an error boundary — otherwise the
