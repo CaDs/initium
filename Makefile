@@ -1,9 +1,33 @@
 BACKEND_DIR := ./backend
 WEB_DIR     := ./web
 MOBILE_DIR  := ./mobile
-DB_URL      := postgres://initium:initium@127.0.0.1:5432/initium_dev?sslmode=disable
 BACKEND_URL := http://localhost:8000
 DOCS_PORT   := 8088
+
+# Load the root .env (if present) so docker-compose variables are available
+# to every recipe + subprocess. Fresh clones without a .env fall through to
+# the defaults below.
+-include .env
+export
+
+POSTGRES_USER     ?= initium
+POSTGRES_PASSWORD ?= initium
+POSTGRES_DB       ?= initium_dev
+POSTGRES_PORT     ?= 5432
+
+# Cascade Postgres credentials into the DB_* names the Go backend reads
+# via godotenv. Exporting means `cd $(BACKEND_DIR) && go run ./cmd/server`
+# picks these up even though they're not in backend/.env. godotenv.Load
+# doesn't overwrite already-set env, so backend/.env's hardcoded values
+# are overridden by these when invoked via make.
+DB_HOST     ?= 127.0.0.1
+DB_PORT     ?= $(POSTGRES_PORT)
+DB_USER     ?= $(POSTGRES_USER)
+DB_PASSWORD ?= $(POSTGRES_PASSWORD)
+DB_NAME     ?= $(POSTGRES_DB)
+export DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME
+
+DB_URL := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=disable
 
 OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || which /usr/local/opt/openssl/bin/openssl 2>/dev/null || echo openssl)
 
@@ -36,6 +60,7 @@ help: ## Show this help (grouped by namespace)
 # ============================================================================
 
 setup: infra\:up ## First-time setup: infra, deps, .env files, migrations, JWT keys
+	cp -n .env.example .env || true
 	cp -n $(BACKEND_DIR)/.env.example $(BACKEND_DIR)/.env || true
 	cp -n $(WEB_DIR)/.env.example $(WEB_DIR)/.env.local || true
 	cp -n $(MOBILE_DIR)/.env.example $(MOBILE_DIR)/.env || true

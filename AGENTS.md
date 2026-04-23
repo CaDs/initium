@@ -6,6 +6,21 @@ This file is always loaded into the agent's context. It covers invariants
 that hold across every stack and points you at the stack-specific skill
 that owns everything else.
 
+## Running multiple forks in parallel
+
+`docker-compose.yml` reads port + credential + project-name vars from a
+root `.env` (copied from `.env.example` by `make setup`). Defaults keep
+fresh clones working out of the box. If you run a second fork next to
+this one and hit `port is already allocated`, edit `.env` and change
+`POSTGRES_PORT` / `MAILPIT_SMTP_PORT` / `MAILPIT_HTTP_PORT` to free
+values, then re-run `make setup`.
+
+If `make db:migrate` fails with `no migration found for version N`, the
+Postgres volume has a `schema_migrations` row that doesn't match the
+files on disk (usually a leftover from a branch that added a migration,
+got reverted, but left the volume dirty). Recover with
+`make infra:reset && make db:migrate`.
+
 ## Read this first, then load your stack skill
 
 ```
