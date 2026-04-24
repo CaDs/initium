@@ -61,10 +61,11 @@ Which runs, in order: `lint` → `test` → `check:parity` → `check:skills`
 → `check:staged`. A green preflight means:
 - Every chi route has a corresponding OpenAPI path and vice versa
   (`backend/internal/app/contract_test.go`).
-- Every `/api/*` spec path has a consumer in `web/src/**`
-  (`backend/cmd/check-parity`). Mobile-side parity is **paused** while
-  the native apps catch up — see `mobile/AGENTS.md` and
-  `.claude/skills/_shared/parity.md`.
+- Every `/api/*` spec path has a consumer in at least one of
+  `web/src/**`, `mobile/ios/**`, or `mobile/android/**`
+  (`backend/cmd/check-parity`). Any-surface coverage passes the gate;
+  all-surface parity is enforced by review (see
+  `.claude/skills/_shared/parity.md`).
 - Every exemplar path cited in a SKILL.md still exists and still contains
   the claimed symbol (`scripts/check-skills.sh`).
 - Every domain error is mapped to an HTTP envelope

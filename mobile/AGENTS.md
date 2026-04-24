@@ -9,13 +9,25 @@ previous Flutter codebase (dropped on branch `feat/dropping_flutter`).
 - **`android/`** — Jetpack Compose + Material 3 app, minSdk 24,
   targetSdk 36, Kotlin 2.2.x, Gradle KTS + version catalog.
 
-Both currently ship a minimal 3-tab shell (Home / Main / Settings) with
-hardcoded text per tab. Nothing is networked, no auth, no secure
-storage. Everything that used to be in the Flutter app (Google Sign-In,
-magic-link verify, token refresh, theme/locale switchers, en/es/ja
-localization) is **deferred** until a feature needs it — see the
-`.claude/skills/initium-mobile/SKILL.md` "Deferred" section of each
-pattern doc.
+Both apps ship:
+
+- An auth-gated shell: login screen (magic link + Google stub) gives way
+  to the 3-tab authenticated UI (Home / Main / Settings) after sign-in.
+- Home tab shows the authenticated user profile (email / name / role /
+  id) mirroring `web/src/app/home/page.tsx`, plus a logout button.
+- An API client with single-flight 401-refresh, a secure token store
+  (Keychain on iOS, EncryptedSharedPreferences on Android), and
+  deep-link handling for magic-link verify
+  (`initium://auth/verify?token=...`).
+
+Still **deferred** to follow-up PRs — do NOT pre-scaffold these:
+
+- Google Sign-In SDKs (button stubbed; `verifyGoogleIDToken` /
+  `verifyGoogleIdToken` methods exist but are unwired to UI).
+- OpenAPI codegen (DTOs are hand-written from the spec for now).
+- Theme switcher (light/dark/system).
+- Locale switcher + en/es/ja i18n.
+- Sentry / Firebase Crashlytics observability.
 
 ## Before you edit anything in this folder
 

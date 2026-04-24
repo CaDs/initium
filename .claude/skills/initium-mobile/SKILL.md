@@ -17,13 +17,17 @@ surface is now:
   targetSdk 36. Uses `NavigationSuiteScaffold` for adaptive nav (bottom bar
   on phones, nav rail on larger screens). See `patterns/android.md`.
 
-> **Scope of the current MVP is tiny on purpose.** Both apps ship a 3-tab
-> shell (Home / Main / Settings) that renders text per tab — nothing
-> networked, no auth, no secure storage, no i18n. Everything that used to
-> be in the Flutter app (Google sign-in, magic link, token refresh, theme
-> switcher, en/es/ja localization) is **deferred** until a feature needs
-> it. Do not pre-scaffold auth or API clients; add them when the first
-> feature blocks on them.
+> **What ships today.** Both apps ship an auth-gated 3-tab shell:
+> login screen (magic link working; Google button stubbed) gives way
+> to Home / Main / Settings after sign-in. The Home tab renders the
+> authenticated user profile (email / name / role / id) mirroring
+> `web/src/app/home/page.tsx`. Each app has a secure token store,
+> a single-flight refresh interceptor, and deep-link handling for
+> `initium://auth/verify?token=...`.
+>
+> **Still deferred** (do NOT pre-scaffold): Google Sign-In SDKs,
+> OpenAPI codegen, theme switcher, locale switcher + i18n,
+> Sentry / Firebase Crashlytics. Each lands in its own follow-up PR.
 
 ## Gates that will fail your PR
 
@@ -93,23 +97,27 @@ own copy. When the template matures, a `mobile/shared/` with a single
   (or two coordinated commits landing together). Half-feature PRs
   break parity and are harder to review.
 
-## The contract-first workflow (future state)
+## The contract-first workflow (current — hand-written DTOs)
 
 When a new API response needs a mobile client:
 
 1. Edit `backend/api/openapi.yaml` (backend side).
 2. Run `make gen:openapi` → regenerates Go + TypeScript types.
-3. **iOS**: (TBD — once `swift-openapi-generator` is wired, a codegen
-   target will produce `Sources/InitiumAPI/`.)
-4. **Android**: (TBD — once `openapi-generator` is wired, a Gradle
-   task will produce `app/build/generated/openapi/`.)
-5. Implement repository / data-source code that wraps the generated
-   client.
+3. Update the hand-written DTOs:
+   - iOS: `mobile/ios/initium/initium/API/Models.swift` — add / edit
+     the `Codable` struct with explicit `CodingKeys` for snake_case
+     field names.
+   - Android: `mobile/android/app/src/main/java/com/example/initium/api/Models.kt` —
+     add / edit the Moshi data class with `@Json(name = "...")` for
+     snake_case field names.
+4. Add a method on `APIClient` (iOS) / `ApiClient` (Android) that
+   consumes or produces the new type.
+5. `make check:parity` verifies the spec path is referenced on at
+   least one surface.
 
-Until that wiring is in place, do NOT add a feature to the mobile apps
-that requires talking to the backend — the parity gate allows it
-(mobile is paused), but it bypasses the contract enforcement. Prefer
-pairing the codegen wiring with the first mobile feature that needs it.
+**OpenAPI codegen is deferred** to a follow-up PR (SPM plugin on iOS,
+Gradle plugin on Android). Until it lands, every spec change must be
+mirrored manually in both `Models.*` files.
 
 ## Platform-specific conventions
 

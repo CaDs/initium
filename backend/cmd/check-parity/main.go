@@ -32,17 +32,12 @@ import (
 )
 
 // excluded are spec paths that intentionally have no client consumer.
-// - Operational endpoints scraped by infra, not called by the apps.
-// - Mobile-only auth endpoints that are still being wired into native
-//   iOS + Android (PR 1 of the parity-catchup); remove once the native
-//   apps actually call them.
+// Operational endpoints scraped by infra, not called by the apps.
 var excluded = map[string]bool{
-	"/healthz":                true,
-	"/readyz":                 true,
-	"/metrics":                true,
-	"/_debug/routes":          true,
-	"/api/auth/mobile/google": true,
-	"/api/auth/mobile/verify": true,
+	"/healthz":       true,
+	"/readyz":        true,
+	"/metrics":       true,
+	"/_debug/routes": true,
 }
 
 type treeSpec struct {

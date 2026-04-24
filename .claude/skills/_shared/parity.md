@@ -30,24 +30,19 @@ Parity applies to **user-facing features**. It does not apply to:
   config).
 - Internal refactors that don't change behavior.
 
-## Current state — mobile parity is paused
+## How `check:parity` enforces it
 
-The Flutter app was removed on branch `feat/dropping_flutter` and
-replaced by two native apps (`mobile/ios/` SwiftUI, `mobile/android/`
-Jetpack Compose). The native apps start from a 3-tab shell with no auth
-and no API calls. That means:
+`backend/cmd/check-parity/main.go` walks three trees: `web/src/**`
+(`.ts`, `.tsx`), `mobile/ios/**` (`.swift`), `mobile/android/**`
+(`.kt`). Every `/api/*` spec path must appear as a literal substring
+in at least one of them. A missing consumer fails CI.
 
-- The `check:parity` gate scans only `web/src/**` right now. Spec paths
-  with no web consumer still fail CI.
-- Mobile-specific paths (`/api/auth/mobile/*`) are in `check:parity`'s
-  exclusion list — see `backend/cmd/check-parity/main.go`.
-- Mobile's half of parity is enforced by convention, not CI. Reviewers
-  must flag feature PRs that skip the native mirrors.
-
-When the native apps are caught up, teach `check:parity` to also scan
-`mobile/ios/**/*.swift` and `mobile/android/**/*.kt`, remove the
-`/api/auth/mobile/*` exclusions, and delete this "current state"
-section.
+The gate enforces *any-surface* coverage, not *all-surface* — a spec
+path referenced only by web still passes. The full three-surface rule
+is enforced by convention during review. If you added an endpoint
+that a platform can't practically consume (e.g. a browser-only
+redirect), exclude it in the `excluded` map with a comment explaining
+why.
 
 ## Why
 
