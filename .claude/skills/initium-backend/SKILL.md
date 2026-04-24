@@ -82,7 +82,7 @@ changing any endpoint:
 2. **List endpoints use envelope schemas**, not bare arrays. A list response is
    `{"resource_name": [...]}` (e.g. `RouteList { routes: [...] }`). Define both
    the item schema and the envelope schema, and mark the array `required`.
-   Bare-array responses break every client's Zod/Dart mapper.
+   Bare-array responses break every client's Zod mapper.
 3. Run `make gen:openapi` to regenerate Go types (`internal/gen/api/types.gen.go`)
    and TypeScript types (`web/src/lib/api-types.ts`).
 4. Implement the handler using the generated request/response types from
@@ -94,18 +94,19 @@ changing any endpoint:
    must appear in `openapi.yaml` using `{id}` syntax (chi's `{id}` maps directly).
    The walker strips trailing `/*`; only add to `excludedPaths` for non-API
    operational routes (e.g. `/metrics`).
-6. If a new schema needs a mobile DTO, add it to `mobile/tool/dto_manifest.yaml`
-   (register **every** wire schema — envelope, request body, item) and write
-   the hand-coded Dart DTO. `make check:openapi` verifies every required field
-   is referenced.
+6. Native mobile (iOS / Android) codegen is **deferred** — see `docs/OPENAPI.md`.
+   Until it's wired, mobile-bound endpoints can be added to the `excluded`
+   list in `backend/cmd/check-parity/main.go` so the parity gate doesn't
+   fail on them.
 
 Full workflow: `docs/OPENAPI.md`.
 
 **Cross-stack completeness**: backend endpoints almost always imply
-matching web/mobile UI. If you add `/api/notes`, a web Zod schema and/or
-mobile DTO should land with it. `make check:parity` fails if a spec path
-has no consumer in `web/src` or `mobile/lib` — treat that as a real
-signal, not a lint noise.
+matching web UI. If you add `/api/notes`, a web Zod schema should land
+with it. `make check:parity` fails if a spec path has no consumer in
+`web/src` — treat that as a real signal, not lint noise. Mobile parity
+is paused while the native apps catch up; see
+`.claude/skills/_shared/parity.md`.
 
 ## Error handling
 

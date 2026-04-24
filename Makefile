@@ -1,6 +1,7 @@
 BACKEND_DIR := ./backend
 WEB_DIR     := ./web
-MOBILE_DIR  := ./mobile
+IOS_DIR     := ./mobile/ios/initium
+ANDROID_DIR := ./mobile/android
 BACKEND_URL := http://localhost:8000
 DOCS_PORT   := 8088
 
@@ -31,17 +32,20 @@ DB_URL := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?
 
 OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || which /usr/local/opt/openssl/bin/openssl 2>/dev/null || echo openssl)
 
+# iOS simulator used by test:ios / dev:ios. Override with `make dev:ios IOS_SIM='iPhone 17'`.
+IOS_SIM ?= iPhone 16
+
 .PHONY: help \
         setup keygen clobber \
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
         db\:migrate db\:rollback db\:reset db\:seed db\:create db\:psql \
-        gen gen\:openapi gen\:mobile \
-        test test\:backend test\:web test\:mobile test\:contract test\:all \
-        lint lint\:backend lint\:web lint\:mobile \
-        format format\:backend format\:web format\:mobile \
-        dev dev\:backend dev\:web dev\:mobile \
-        build\:backend build\:web build\:mobile\:apk build\:mobile\:ios \
-        routes docs check\:openapi check\:parity check\:staged preflight
+        gen gen\:openapi \
+        test test\:backend test\:web test\:ios test\:android test\:contract test\:all \
+        lint lint\:backend lint\:web lint\:ios lint\:android \
+        format format\:backend format\:web format\:ios format\:android \
+        dev dev\:backend dev\:web dev\:ios dev\:android \
+        build\:backend build\:web build\:ios build\:android \
+        routes docs check\:parity check\:skills check\:staged preflight
 
 help: ## Show this help (grouped by namespace)
 	@awk 'BEGIN { FS = " ## "; group = ""; prev_group = ""; } \
@@ -63,10 +67,10 @@ setup: infra\:up ## First-time setup: infra, deps, .env files, migrations, JWT k
 	cp -n .env.example .env || true
 	cp -n $(BACKEND_DIR)/.env.example $(BACKEND_DIR)/.env || true
 	cp -n $(WEB_DIR)/.env.example $(WEB_DIR)/.env.local || true
-	cp -n $(MOBILE_DIR)/.env.example $(MOBILE_DIR)/.env || true
 	cd $(BACKEND_DIR) && go mod download
 	cd $(WEB_DIR) && npm install
-	cd $(MOBILE_DIR) && flutter pub get
+	@echo "iOS: open $(IOS_DIR)/initium.xcodeproj in Xcode 26+ (simulator download handled on first run)."
+	@echo "Android: open $(ANDROID_DIR) in Android Studio (Gradle syncs on first import)."
 	$(MAKE) keygen
 	@bash scripts/wait-for-postgres.sh
 	$(MAKE) db\:migrate
@@ -79,10 +83,11 @@ keygen: ## Generate Ed25519 keypair for JWT signing
 	cd $(BACKEND_DIR) && $(OPENSSL) pkey -in jwt_private.pem -pubout -out jwt_public.pem
 	@echo "JWT keys generated in $(BACKEND_DIR)/."
 
-clobber: ## Nuclear clean — remove build artifacts, node_modules, flutter build, dart_tool
+clobber: ## Nuclear clean — remove build artifacts, node_modules, Xcode DerivedData, Gradle caches
 	rm -rf $(BACKEND_DIR)/bin
 	rm -rf $(WEB_DIR)/.next $(WEB_DIR)/node_modules
-	rm -rf $(MOBILE_DIR)/build $(MOBILE_DIR)/.dart_tool
+	rm -rf $(IOS_DIR)/build $(IOS_DIR)/.swiftpm $(IOS_DIR)/DerivedData
+	rm -rf $(ANDROID_DIR)/build $(ANDROID_DIR)/.gradle $(ANDROID_DIR)/app/build
 
 # ============================================================================
 ## group: infra
@@ -147,15 +152,12 @@ gen\:openapi: ## Regenerate Go + TypeScript types from backend/api/openapi.yaml
 	cd $(BACKEND_DIR) && go tool oapi-codegen -config internal/gen/api/config.yaml api/openapi.yaml
 	cd $(WEB_DIR) && npx openapi-typescript ../backend/api/openapi.yaml -o src/lib/api-types.ts
 
-gen\:mobile: ## Flutter localizations (run after editing lib/l10n/*.arb)
-	cd $(MOBILE_DIR) && flutter gen-l10n
-
 # ============================================================================
 ## group: test
 # ============================================================================
 
-test: ## Fast suite (backend + web + mobile unit tests, parallel)
-	@$(MAKE) -j3 test\:backend test\:web test\:mobile
+test: ## Fast suite (backend + web unit tests, parallel). Native mobile runs separately.
+	@$(MAKE) -j2 test\:backend test\:web
 
 test\:backend: ## Backend Go tests with race detector
 	cd $(BACKEND_DIR) && go test ./... -v -race -count=1
@@ -163,8 +165,18 @@ test\:backend: ## Backend Go tests with race detector
 test\:web: ## Web Vitest suite
 	cd $(WEB_DIR) && npm run test
 
-test\:mobile: ## Flutter unit + widget tests
-	cd $(MOBILE_DIR) && flutter test
+test\:ios: ## iOS Swift Testing on simulator (requires Xcode 26+)
+	cd $(IOS_DIR) && xcodebuild test \
+		-project initium.xcodeproj \
+		-scheme initium \
+		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
+		-quiet
+
+test\:android: ## Android unit tests (./gradlew test)
+	cd $(ANDROID_DIR) && ./gradlew test
+
+test\:android\:instrumented: ## Android Compose UI tests (requires running emulator or device)
+	cd $(ANDROID_DIR) && ./gradlew connectedAndroidTest
 
 test\:contract: ## Schemathesis contract tests (requires running backend; heavy — CI-only)
 	bash scripts/schemathesis.sh
@@ -175,8 +187,8 @@ test\:all: test test\:contract ## Everything: fast suite + contract tests
 ## group: lint
 # ============================================================================
 
-lint: ## All linters (backend + web + mobile, parallel)
-	@$(MAKE) -j3 lint\:backend lint\:web lint\:mobile
+lint: ## All linters (backend + web, parallel). Native iOS/Android linters run separately.
+	@$(MAKE) -j2 lint\:backend lint\:web
 
 lint\:backend: ## golangci-lint backend
 	cd $(BACKEND_DIR) && golangci-lint run ./...
@@ -184,11 +196,14 @@ lint\:backend: ## golangci-lint backend
 lint\:web: ## ESLint + TypeScript web
 	cd $(WEB_DIR) && npm run lint
 
-lint\:mobile: ## dart analyze mobile
-	cd $(MOBILE_DIR) && dart analyze
+lint\:ios: ## iOS static analysis (xcodebuild with -quiet; SwiftLint/SwiftFormat not yet wired)
+	cd $(IOS_DIR) && xcodebuild -project initium.xcodeproj -scheme initium -destination 'platform=iOS Simulator,name=$(IOS_SIM)' -quiet analyze
 
-format: ## Format all code (backend + web + mobile)
-	@$(MAKE) -j3 format\:backend format\:web format\:mobile
+lint\:android: ## Android Lint + (future) ktlint/detekt
+	cd $(ANDROID_DIR) && ./gradlew lint
+
+format: ## Format all code (backend + web)
+	@$(MAKE) -j2 format\:backend format\:web
 
 format\:backend: ## gofmt backend
 	cd $(BACKEND_DIR) && gofmt -w .
@@ -196,8 +211,11 @@ format\:backend: ## gofmt backend
 format\:web: ## prettier web
 	cd $(WEB_DIR) && npx prettier --write "src/**/*.{ts,tsx,json,css}"
 
-format\:mobile: ## dart format mobile
-	cd $(MOBILE_DIR) && dart format .
+format\:ios: ## Swift format (uses Xcode's bundled swift-format)
+	cd $(IOS_DIR) && xcrun swift-format -i -r initium initiumTests initiumUITests
+
+format\:android: ## Kotlin format (relies on Android Studio's formatter; ktlint not yet wired)
+	@echo "format:android is a placeholder; ktlint/detekt not yet wired. Use Android Studio's Reformat Code for now."
 
 # ============================================================================
 ## group: dev
@@ -216,8 +234,25 @@ dev\:backend: ## Backend only (hot reload via air)
 dev\:web: ## Web only (Next.js on port 3000)
 	cd $(WEB_DIR) && npm run dev
 
-dev\:mobile: _ensure-simulator ## Mobile — boots simulator if needed, runs flutter run
-	cd $(MOBILE_DIR) && flutter run --dart-define-from-file=.env
+dev\:ios: _ensure-simulator ## iOS — boots simulator if needed, builds + runs via Xcode
+	cd $(IOS_DIR) && xcodebuild \
+		-project initium.xcodeproj \
+		-scheme initium \
+		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
+		-configuration Debug \
+		build
+	@UDID=$$(xcrun simctl list devices booted 2>/dev/null | grep -oE '[A-F0-9-]{36}' | head -1); \
+	APP_PATH=$$(find $(IOS_DIR)/build $(HOME)/Library/Developer/Xcode/DerivedData -name 'initium.app' -path '*Debug-iphonesimulator*' -print -quit 2>/dev/null); \
+	if [ -n "$$APP_PATH" ] && [ -n "$$UDID" ]; then \
+		xcrun simctl install "$$UDID" "$$APP_PATH"; \
+		xcrun simctl launch "$$UDID" cads.initium; \
+	else \
+		echo "Build succeeded but could not auto-install. Open $(IOS_DIR)/initium.xcodeproj in Xcode and press Run."; \
+	fi
+
+dev\:android: ## Android — installs + launches the debug APK on a running emulator/device
+	cd $(ANDROID_DIR) && ./gradlew installDebug
+	@adb shell am start -n com.example.initium/.MainActivity
 
 _ensure-simulator:
 	@if ! xcrun simctl list devices booted 2>/dev/null | grep -q "Booted"; then \
@@ -246,11 +281,16 @@ build\:backend: ## Backend binary to backend/bin/server
 build\:web: ## Web production bundle
 	cd $(WEB_DIR) && npm run build
 
-build\:mobile\:apk: ## Android debug APK
-	cd $(MOBILE_DIR) && flutter build apk --debug
+build\:ios: ## iOS archive-style build against a simulator destination
+	cd $(IOS_DIR) && xcodebuild \
+		-project initium.xcodeproj \
+		-scheme initium \
+		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
+		-configuration Debug \
+		build
 
-build\:mobile\:ios: ## iOS simulator build
-	cd $(MOBILE_DIR) && flutter build ios --simulator
+build\:android: ## Android debug APK
+	cd $(ANDROID_DIR) && ./gradlew assembleDebug
 
 # ============================================================================
 ## group: ops
@@ -267,14 +307,14 @@ docs: ## Serve Swagger UI for backend/api/openapi.yaml on :$(DOCS_PORT)
 		-v $(PWD)/backend/api:/spec:ro \
 		swaggerapi/swagger-ui
 
-check\:openapi: ## Verify Dart DTOs stay in sync with OpenAPI spec
-	cd $(BACKEND_DIR) && go run ./cmd/check-dto-drift
-
-check\:parity: ## Verify every /api/ spec path has a web or mobile consumer
+check\:parity: ## Verify every /api/ spec path has a web consumer (mobile is paused — see mobile/AGENTS.md)
 	cd $(BACKEND_DIR) && go run ./cmd/check-parity
+
+check\:skills: ## Verify exemplar paths and <!-- expect: symbol --> annotations in each SKILL.md
+	@bash scripts/check-skills.sh
 
 check\:staged: ## Fail if git has untracked or unstaged changes
 	@bash scripts/check-staged.sh
 
-preflight: ## Every gate a PR must pass: lint + test + check:openapi + check:parity + check:skills + check:staged
+preflight: ## Every gate a PR must pass: lint + test + check:parity + check:skills + check:staged
 	@bash scripts/preflight.sh

@@ -16,13 +16,16 @@ An opinionated full-stack starter template for experimenting with new ideas with
 |-----------|-----------|
 | Backend | Go (chi + GORM + PostgreSQL) |
 | Frontend | Next.js (App Router, TypeScript, Tailwind) |
-| Mobile | Flutter (Dart, Riverpod, Dio) |
+| Mobile — iOS | SwiftUI, Liquid Glass (opt-in, iOS 26+), deployment target iOS 17 |
+| Mobile — Android | Jetpack Compose + Material 3, Kotlin 2.2.x, minSdk 24 |
 | Infra | Docker Compose (PostgreSQL + Mailpit) |
 
 ## Quick Start
 
 ```bash
-# Prerequisites: Go 1.23+, Node 20+, Flutter 3.22+, Docker
+# Prerequisites: Go 1.23+, Node 20+, Docker
+# iOS build requires Xcode 26+
+# Android build requires Android Studio + JDK 17+
 # Install golang-migrate: brew install golang-migrate
 
 make setup    # Starts infra, installs deps, runs migrations, generates JWT keys
@@ -45,11 +48,12 @@ Configure Google OAuth when you're ready — not before.
 
 Every POC needs the same boring foundation. Initium provides it so you can focus on your idea:
 
-- **Passwordless auth** — Google OAuth + magic links, no password flows to build or secure
+- **Passwordless auth** — Google OAuth + magic links on web, no password flows to build or secure
 - **Landing page** — public page with CTA
 - **Authenticated home** — protected dashboard, ready to customize
 - **Session management** — short-lived JWTs + refresh token rotation, backend-owned
 - **API spec** — OpenAPI 3.1 as the canonical contract
+- **Native mobile scaffolding** — iOS (SwiftUI) + Android (Compose) each ship a 3-tab shell ready to extend (auth / API / i18n deferred)
 - **Dev tools** — hot reload, Docker infra, Mailpit for email testing, Makefile for everything
 
 ## Project Structure
@@ -58,7 +62,9 @@ Every POC needs the same boring foundation. Initium provides it so you can focus
 initium/
 ├── backend/                  # Go API server
 ├── web/                      # Next.js frontend
-├── mobile/                   # Flutter app (iOS + Android)
+├── mobile/                   # Native iOS + Android apps
+│   ├── ios/initium/          #   SwiftUI + Liquid Glass (Xcode project)
+│   └── android/              #   Jetpack Compose + Material 3 (Gradle project)
 ├── .claude/skills/           # Agent guidance (initium-{backend,web,mobile})
 ├── docker-compose.yml
 ├── Makefile                  # All dev commands (make help)
@@ -82,7 +88,7 @@ make db:create NAME=add_orders   # Create new migration
 make db:psql                     # Open psql against the dev database
 make routes                      # Print HTTP route table (dev only)
 make docs                        # Serve Swagger UI on :8088
-make check:openapi               # Verify Dart DTOs match the spec
+make check:parity                # Verify every /api/ spec path has a web consumer
 ```
 
 API spec: `backend/api/openapi.yaml` — see `docs/OPENAPI.md` for the contract-first workflow.
@@ -97,23 +103,42 @@ make test:web         # Run tests
 make lint:web         # Lint
 ```
 
-### Mobile
+### Mobile — iOS (SwiftUI)
 
 ```bash
-make infra:up         # Start PostgreSQL + Mailpit
-make dev:backend      # Start backend (needed for API)
-make dev:mobile       # Flutter run with env config
-make test:mobile      # Run tests
-make gen:mobile       # Regenerate Flutter localizations from ARB
+make dev:ios                      # Build + launch on simulator (boots one if needed)
+make test:ios                     # Swift Testing (xcodebuild test)
+make build:ios                    # Debug build for simulator
+make dev:ios IOS_SIM='iPhone 17'  # Override the simulator destination
 ```
 
-See `mobile/SETUP.md` for Google Sign-In platform configuration.
+Requires Xcode 26+. See `mobile/ios/AGENTS.md` for conventions and
+`.claude/skills/initium-mobile/patterns/ios.md` for exemplars.
+
+### Mobile — Android (Jetpack Compose)
+
+```bash
+make dev:android                  # Install + launch the debug APK on running device/emulator
+make test:android                 # JVM unit tests (./gradlew test)
+make test:android:instrumented    # Compose UI tests (needs running device)
+make build:android                # Debug APK
+make lint:android                 # Android Lint (./gradlew lint)
+```
+
+Requires Android Studio + JDK 17+. See `mobile/android/AGENTS.md` for
+conventions and `.claude/skills/initium-mobile/patterns/android.md` for
+exemplars.
 
 ### Pre-PR
 
 ```bash
-make preflight        # lint + test + check:openapi — same gates as CI
+make preflight        # lint + test + check:parity + check:skills + check:staged
 ```
+
+`make preflight` does NOT run native mobile tests — those need Xcode or
+Android Studio which aren't guaranteed in every environment. Run
+`make test:ios` and `make test:android` explicitly when you've touched
+`mobile/`.
 
 ## Architecture
 
@@ -137,7 +162,10 @@ one based on which paths they're editing. See `AGENTS.md` for the map.
 - **No passwords** — Google OAuth + magic links only
 - Backend owns session state (JWTs + refresh tokens in PostgreSQL)
 - Web: httpOnly cookies set by backend
-- Mobile: tokens stored in Keychain (iOS) / EncryptedSharedPreferences (Android)
+- Native mobile: auth is **deferred** (tokens will land in Keychain on iOS
+  / EncryptedSharedPreferences on Android when wired). The
+  `/api/auth/mobile/*` endpoints exist on the backend and are excluded
+  from the parity gate until then.
 - Magic links are single-use (enforced via DB)
 - Refresh token rotation on every refresh
 
