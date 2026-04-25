@@ -21,7 +21,17 @@ make lint
 step "test (backend + web, parallel)"
 make test
 
-step "check:parity (every /api/ spec path has a web consumer; mobile is paused)"
+step "check:gen-drift (openapi.yaml + api-types.ts up to date)"
+# Regenerate the artifacts that downstream stacks consume. If a PR added
+# a Huma operation but forgot to run `make gen:openapi`, the resulting
+# diff fails this step with a clear hint.
+make gen:openapi
+if ! git diff --exit-code -- backend/api/openapi.yaml web/src/lib/api-types.ts; then
+    red "Generated artifacts are stale — commit the diff above (run \`make gen:openapi\`)."
+    exit 1
+fi
+
+step "check:parity (every /api/ spec path has a consumer; mobile is paused)"
 make check:parity
 
 step "check:skills (exemplar path + symbol drift)"

@@ -1,16 +1,13 @@
 package handler
 
 import (
-	"encoding/json"
-	"log/slog"
+	"context"
 	"net/http"
 
-	"github.com/google/uuid"
-	openapi_types "github.com/oapi-codegen/runtime/types"
+	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
-	"github.com/eridia/initium/backend/internal/gen/api"
 )
 
 // UserHandler handles user profile endpoints.
@@ -23,60 +20,72 @@ func NewUserHandler(users domain.UserService) *UserHandler {
 	return &UserHandler{users: users}
 }
 
-// GetProfile returns the current user's profile.
-func (h *UserHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
-
-	user, err := h.users.GetProfile(r.Context(), userID)
-	if err != nil {
-		Error(w, r, err)
-		return
-	}
-
-	writeUser(w, r, user)
+// userOutput wraps the User wire type so Huma generates the right
+// response schema reference (User) instead of inlining anonymous fields.
+type userOutput struct {
+	Body User
 }
 
-// UpdateProfile updates the current user's name.
-func (h *UserHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	userID := middleware.GetUserID(r.Context())
-
-	var req api.UpdateProfileRequest
-	dec := json.NewDecoder(r.Body)
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&req); err != nil {
-		Error(w, r, domain.ErrInvalidInput)
-		return
+// updateProfileInput carries the PATCH /api/me JSON body. Huma validates
+// minLength/maxLength via the struct tags before the handler runs.
+type updateProfileInput struct {
+	Body struct {
+		Name string `json:"name" minLength:"1" maxLength:"100" doc:"New display name (1-100 characters)"`
 	}
-	if req.Name == nil || len(*req.Name) == 0 || len(*req.Name) > 100 {
-		Error(w, r, domain.ErrInvalidInput)
-		return
-	}
-
-	user, err := h.users.UpdateProfile(r.Context(), userID, *req.Name)
-	if err != nil {
-		Error(w, r, err)
-		return
-	}
-
-	writeUser(w, r, user)
 }
 
-// writeUser serializes a domain.User into the generated api.User wire type.
-// Used by every endpoint that returns a user (GET /api/me, PATCH /api/me).
-// If the stored ID is not a valid UUID (should never happen), returns 500.
-func writeUser(w http.ResponseWriter, r *http.Request, u *domain.User) {
-	id, err := uuid.Parse(u.ID)
+// RegisterUser wires the user-profile endpoints onto the Huma API.
+// Auth + role middleware come from the caller via the operation
+// Middlewares slice — see app/api.go for how they're attached.
+func (h *UserHandler) RegisterUser(api huma.API, authMW func(huma.Context, func(huma.Context))) {
+	huma.Register(api, huma.Operation{
+		OperationID: "get-me",
+		Method:      http.MethodGet,
+		Path:        "/api/me",
+		Summary:     "Get current user profile",
+		Tags:        []string{"user"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{authMW},
+	}, h.getMe)
+
+	huma.Register(api, huma.Operation{
+		OperationID: "update-me",
+		Method:      http.MethodPatch,
+		Path:        "/api/me",
+		Summary:     "Update current user's display name",
+		Tags:        []string{"user"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{authMW},
+	}, h.updateMe)
+}
+
+func (h *UserHandler) getMe(ctx context.Context, _ *struct{}) (*userOutput, error) {
+	userID := middleware.GetUserID(ctx)
+	user, err := h.users.GetProfile(ctx, userID)
 	if err != nil {
-		slog.Error("invalid user uuid", "id", u.ID, "error", err)
-		Error(w, r, err)
-		return
+		return nil, MapDomainErr(ctx, err)
 	}
-	JSON(w, r, http.StatusOK, api.User{
-		Id:        openapi_types.UUID(id),
-		Email:     openapi_types.Email(u.Email),
+	return &userOutput{Body: toUserDTO(user)}, nil
+}
+
+func (h *UserHandler) updateMe(ctx context.Context, in *updateProfileInput) (*userOutput, error) {
+	userID := middleware.GetUserID(ctx)
+	user, err := h.users.UpdateProfile(ctx, userID, in.Body.Name)
+	if err != nil {
+		return nil, MapDomainErr(ctx, err)
+	}
+	return &userOutput{Body: toUserDTO(user)}, nil
+}
+
+// toUserDTO converts a domain.User into the wire-shape User. Centralized
+// so every endpoint that returns a user uses identical field projection.
+func toUserDTO(u *domain.User) User {
+	return User{
+		ID:        u.ID,
+		Email:     u.Email,
 		Name:      u.Name,
-		AvatarUrl: u.AvatarURL,
-		Role:      api.UserRole(u.Role),
+		AvatarURL: u.AvatarURL,
+		Role:      u.Role,
 		CreatedAt: u.CreatedAt,
-	})
+	}
 }

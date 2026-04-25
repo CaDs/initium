@@ -5,7 +5,6 @@ package app
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -63,41 +62,30 @@ func NewRouter(d RouterDeps) chi.Router {
 		r.Get("/_debug/routes", handler.RoutesDebug(r))
 	}
 
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/landing", handler.Landing)
+	// Huma API — source of truth for the OpenAPI spec. All JSON-in /
+	// JSON-out endpoints register here. Per-operation middleware (auth,
+	// role, rate limit) is wired via huma.Operation.Middlewares and the
+	// Huma-flavor adapters in handler/auth_huma.go +
+	// handler/middleware_bridge.go.
+	handler.InstallErrorEnvelope() // override huma.NewError once
+	api := NewAPI(r)
+	authMW := handler.HumaAuthMiddleware(api, d.TokenGen, d.DevBypass)
+	requireAdmin := handler.HumaRequireRole(api, "admin", d.RoleLookup)
+	rateLimitMW := handler.HumaFromHTTP(httprate.LimitByIP(10, time.Minute))
 
-		// Auth routes (rate limited)
-		r.Route("/auth", func(r chi.Router) {
-			r.Use(httprate.LimitByIP(10, time.Minute))
+	handler.RegisterLanding(api)
+	d.User.RegisterUser(api, authMW)
+	handler.RegisterAdmin(api, authMW, requireAdmin)
+	d.Auth.RegisterAuth(api, authMW, rateLimitMW)
+	d.MobileAuth.RegisterMobileAuth(api, rateLimitMW)
 
-			r.Get("/google", d.Auth.GoogleRedirect)
-			r.Get("/google/callback", d.Auth.GoogleCallback)
-			r.Post("/magic-link", d.Auth.RequestMagicLink)
-			r.Get("/verify", d.Auth.VerifyMagicLink)
-			r.Post("/refresh", d.Auth.RefreshTokens)
-			r.Post("/mobile/google", d.MobileAuth.GoogleIDToken)
-			r.Post("/mobile/verify", d.MobileAuth.VerifyMagicLink)
-		})
-
-		// Protected routes
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(d.TokenGen, d.DevBypass))
-
-			r.Get("/me", d.User.GetProfile)
-			r.Patch("/me", d.User.UpdateProfile)
-			r.Post("/auth/logout", d.Auth.Logout)
-			r.Post("/auth/logout-all", d.Auth.LogoutAll)
-		})
-
-		// Admin-only routes
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(d.TokenGen, d.DevBypass))
-			r.Use(middleware.RequireRole("admin", d.RoleLookup))
-
-			r.Get("/admin/ping", func(w http.ResponseWriter, req *http.Request) {
-				handler.JSON(w, req, http.StatusOK, map[string]string{"role": "admin"})
-			})
-		})
+	// Chi-native routes — browser-flow redirects with Set-Cookie. Same
+	// rate limiter as the JSON auth endpoints, applied chi-style here.
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(httprate.LimitByIP(10, time.Minute))
+		r.Get("/google", d.Auth.GoogleRedirect)
+		r.Get("/google/callback", d.Auth.GoogleCallback)
+		r.Get("/verify", d.Auth.VerifyMagicLink)
 	})
 
 	return r
