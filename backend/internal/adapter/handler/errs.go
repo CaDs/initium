@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"log/slog"
+	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -50,42 +51,48 @@ func MapDomainErr(ctx context.Context, err error) *APIError {
 	}
 }
 
+// installErrorEnvelopeOnce guards against multiple goroutines racing on
+// huma.NewError. Tests that build a fresh humatest API call
+// InstallErrorEnvelope on every test; with t.Parallel() the race
+// detector flags the unsynchronized writes to a global without this
+// guard.
+var installErrorEnvelopeOnce sync.Once
+
 // InstallErrorEnvelope overrides huma.NewError so error responses generated
 // by Huma itself (validation failures, missing-body errors) match the
-// existing ErrorResponse wire shape. Called once at startup from app/api.go.
-//
-// huma.NewError is a package-level var; setting it once at process start is
-// safe for our single-process model. Tests that build a fresh humatest API
-// rely on this being called too — handlers/init_test.go takes care of it.
+// existing ErrorResponse wire shape. Called once at startup from app/api.go;
+// safe to call multiple times — only the first installs the override.
 func InstallErrorEnvelope() {
-	huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
-		// If the caller already produced an APIError (handlers via MapDomainErr),
-		// pass it through unchanged — that path carries our code + request_id.
-		for _, e := range errs {
-			if ae, ok := e.(*APIError); ok {
-				return ae
+	installErrorEnvelopeOnce.Do(func() {
+		huma.NewError = func(status int, msg string, errs ...error) huma.StatusError {
+			// If the caller already produced an APIError (handlers via MapDomainErr),
+			// pass it through unchanged — that path carries our code + request_id.
+			for _, e := range errs {
+				if ae, ok := e.(*APIError); ok {
+					return ae
+				}
 			}
+			// Otherwise this is Huma synthesizing an error (e.g. validation
+			// failure). Best-effort code derivation from status.
+			code := "INTERNAL_ERROR"
+			switch status {
+			case 400, 422:
+				// 422 is what Huma returns when struct-tag validation fails
+				// (required, format, minLength, etc.). Map to INVALID_INPUT
+				// so clients see the same code as for hand-rolled 400s.
+				code = "INVALID_INPUT"
+			case 401:
+				code = "INVALID_CREDENTIALS"
+			case 403:
+				code = "FORBIDDEN"
+			case 404:
+				code = "NOT_FOUND"
+			case 409:
+				code = "CONFLICT"
+			case 429:
+				code = "RATE_LIMITED"
+			}
+			return &APIError{HTTPStatus: status, Code: code, Message: msg}
 		}
-		// Otherwise this is Huma synthesizing an error (e.g. validation
-		// failure). Best-effort code derivation from status.
-		code := "INTERNAL_ERROR"
-		switch status {
-		case 400, 422:
-			// 422 is what Huma returns when struct-tag validation fails
-			// (required, format, minLength, etc.). Map to INVALID_INPUT
-			// so clients see the same code as for hand-rolled 400s.
-			code = "INVALID_INPUT"
-		case 401:
-			code = "INVALID_CREDENTIALS"
-		case 403:
-			code = "FORBIDDEN"
-		case 404:
-			code = "NOT_FOUND"
-		case 409:
-			code = "CONFLICT"
-		case 429:
-			code = "RATE_LIMITED"
-		}
-		return &APIError{HTTPStatus: status, Code: code, Message: msg}
-	}
+	})
 }
