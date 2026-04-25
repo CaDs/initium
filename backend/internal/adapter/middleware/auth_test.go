@@ -1,162 +1,234 @@
-package middleware
+package middleware_test
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/eridia/initium/backend/internal/adapter/middleware"
+	"github.com/eridia/initium/backend/internal/testutil"
 )
 
-// mockTokenGenerator implements domain.TokenGenerator for testing.
-type mockTokenGenerator struct {
-	validToken string
-	userID     string
-	email      string
+// auth_test.go covers the chi-native middleware that protects the
+// remaining browser-chrome endpoints (Google callback flow, magic-link
+// verify). The Huma-side equivalent lives in adapter/handler — this
+// test file is the safety net for the chi pipeline.
+
+// okHandler200 is the dummy "next" handler used by tests that expect
+// the middleware to call through. Tests that expect a 4xx short-circuit
+// use a t.Fatal handler so an unexpected pass-through fails loudly.
+func okHandler200() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
 }
 
-func (m *mockTokenGenerator) GenerateAccessToken(userID, email string) (string, error) {
-	return "mock-token", nil
-}
-
-func (m *mockTokenGenerator) GenerateRefreshToken() (string, error) {
-	return "mock-refresh", nil
-}
-
-func (m *mockTokenGenerator) ValidateAccessToken(token string) (string, string, error) {
-	if token == m.validToken {
-		return m.userID, m.email, nil
-	}
-	return "", "", http.ErrNoCookie
-}
-
-func (m *mockTokenGenerator) HashToken(token string) string {
-	return "hashed-" + token
-}
+// ----------------------------------------------------------------------
+// Auth middleware
+// ----------------------------------------------------------------------
 
 func TestAuth_DevBypass_InjectsTestUser(t *testing.T) {
 	t.Parallel()
 
-	handler := Auth(nil, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := GetUserID(r.Context())
-		if userID != "00000000-0000-0000-0000-000000000001" {
-			t.Errorf("expected dev user ID, got %q", userID)
-		}
-		email, _ := r.Context().Value(EmailKey).(string)
-		if email != "dev@initium.local" {
-			t.Errorf("expected dev email, got %q", email)
-		}
+	var gotUserID, gotEmail string
+	chained := middleware.Auth(nil, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = middleware.GetUserID(r.Context())
+		gotEmail, _ = r.Context().Value(middleware.EmailKey).(string)
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "00000000-0000-0000-0000-000000000001", gotUserID)
+	assert.Equal(t, "dev@initium.local", gotEmail)
 }
 
-func TestAuth_ValidBearerToken(t *testing.T) {
+func TestAuth_ValidBearerToken_AuthenticatesUser(t *testing.T) {
 	t.Parallel()
 
-	tokens := &mockTokenGenerator{validToken: "good-token", userID: "user-1", email: "u@test.com"}
-
-	handler := Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := GetUserID(r.Context())
-		if userID != "user-1" {
-			t.Errorf("expected user-1, got %q", userID)
-		}
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(token string) (string, string, error) {
+			require.Equal(t, "good-token", token)
+			return "user-1", "u@test.com", nil
+		},
+	}
+	var gotUserID string
+	chained := middleware.Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = middleware.GetUserID(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer good-token")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "user-1", gotUserID)
 }
 
-func TestAuth_ValidCookieToken(t *testing.T) {
+func TestAuth_ValidCookieToken_AuthenticatesUser(t *testing.T) {
 	t.Parallel()
 
-	tokens := &mockTokenGenerator{validToken: "cookie-token", userID: "user-2", email: "c@test.com"}
-
-	handler := Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := GetUserID(r.Context())
-		if userID != "user-2" {
-			t.Errorf("expected user-2, got %q", userID)
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(token string) (string, string, error) {
+			require.Equal(t, "cookie-token", token)
+			return "user-2", "c@test.com", nil
+		},
+	}
+	chained := middleware.Auth(tokens, false)(okHandler200())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestAuth_MissingToken_Returns401(t *testing.T) {
 	t.Parallel()
 
-	tokens := &mockTokenGenerator{}
-	handler := Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
+	chained := middleware.Auth(&testutil.MockTokenGenerator{}, false)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not be called when token is missing")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestAuth_InvalidToken_Returns401(t *testing.T) {
 	t.Parallel()
 
-	tokens := &mockTokenGenerator{validToken: "real-token"}
-	handler := Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("handler should not be called")
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(_ string) (string, string, error) {
+			return "", "", errors.New("signature invalid")
+		},
+	}
+	chained := middleware.Auth(tokens, false)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not be called when token is invalid")
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer wrong-token")
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
-func TestAuth_BearerTakesPriorityOverCookie(t *testing.T) {
+func TestAuth_BearerOverridesCookie(t *testing.T) {
 	t.Parallel()
 
-	tokens := &mockTokenGenerator{validToken: "bearer-token", userID: "bearer-user", email: "b@test.com"}
-
-	handler := Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := GetUserID(r.Context())
-		if userID != "bearer-user" {
-			t.Errorf("expected bearer-user, got %q", userID)
-		}
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(token string) (string, string, error) {
+			require.Equal(t, "bearer-token", token, "Authorization header must take precedence")
+			return "bearer-user", "b@test.com", nil
+		},
+	}
+	var gotUserID string
+	chained := middleware.Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserID = middleware.GetUserID(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer bearer-token")
 	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
-	rr := httptest.NewRecorder()
-	handler.ServeHTTP(rr, req)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
 
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "bearer-user", gotUserID)
+}
+
+// ----------------------------------------------------------------------
+// RequireRole middleware
+// ----------------------------------------------------------------------
+
+func TestRequireRole_AdminRole_AllowsThrough(t *testing.T) {
+	t.Parallel()
+
+	var lookupCalledFor string
+	roleMW := middleware.RequireRole("admin", func(_ context.Context, userID string) (string, error) {
+		lookupCalledFor = userID
+		return "admin", nil
+	})
+	chained := roleMW(okHandler200())
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/ping", nil)
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, testutil.AdminUser.ID)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, testutil.AdminUser.ID, lookupCalledFor)
+}
+
+func TestRequireRole_WrongRole_Returns403(t *testing.T) {
+	t.Parallel()
+
+	roleMW := middleware.RequireRole("admin", func(_ context.Context, _ string) (string, error) {
+		return "user", nil
+	})
+	chained := roleMW(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not be called when role doesn't match")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/ping", nil)
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, testutil.RegularUser.ID)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	assert.Contains(t, rec.Body.String(), "FORBIDDEN")
+}
+
+func TestRequireRole_LookupError_Returns500(t *testing.T) {
+	t.Parallel()
+
+	roleMW := middleware.RequireRole("admin", func(_ context.Context, _ string) (string, error) {
+		return "", errors.New("database down")
+	})
+	chained := roleMW(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not be called when role lookup fails")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/ping", nil)
+	ctx := context.WithValue(req.Context(), middleware.UserIDKey, "u")
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req.WithContext(ctx))
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Contains(t, rec.Body.String(), "INTERNAL_ERROR")
+}
+
+func TestRequireRole_MissingUserID_Returns401(t *testing.T) {
+	t.Parallel()
+
+	roleMW := middleware.RequireRole("admin", func(_ context.Context, _ string) (string, error) {
+		t.Fatal("lookup must not be called when userID is missing")
+		return "", nil
+	})
+	chained := roleMW(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatal("handler must not be called when userID is missing")
+	}))
+
+	// No userID in context — middleware should 401 before invoking lookup.
+	req := httptest.NewRequest(http.MethodGet, "/api/admin/ping", nil)
+	rec := httptest.NewRecorder()
+	chained.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
