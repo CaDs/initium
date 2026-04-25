@@ -27,11 +27,15 @@ final class AuthStore {
 
     private(set) var state: State = .loading
 
-    private let api: APIClient
-    private let tokenStorage: TokenStorage
+    private let api: any APIClientProtocol
+    private let tokenStorage: any TokenStorageProtocol
     private let devBypass: Bool
 
-    init(api: APIClient, tokenStorage: TokenStorage, devBypass: Bool = Config.devBypassAuth) {
+    init(
+        api: any APIClientProtocol,
+        tokenStorage: any TokenStorageProtocol,
+        devBypass: Bool = Config.devBypassAuth
+    ) {
         self.api = api
         self.tokenStorage = tokenStorage
         self.devBypass = devBypass

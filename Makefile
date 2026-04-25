@@ -50,7 +50,7 @@ GRADLE_ENV := JAVA_HOME="$(ANDROID_STUDIO_JBR)" ANDROID_HOME="$(ANDROID_SDK)"
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
         db\:migrate db\:rollback db\:reset db\:seed db\:create db\:psql \
         gen gen\:openapi \
-        test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:ios test\:android test\:contract test\:all \
+        test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:ios test\:ios\:coverage test\:android test\:android\:coverage test\:contract test\:all \
         lint lint\:backend lint\:web lint\:ios lint\:android \
         format format\:backend format\:web format\:ios format\:android \
         dev dev\:backend dev\:web dev\:ios dev\:android \
@@ -192,6 +192,17 @@ test\:ios: ## iOS Swift Testing on simulator (requires Xcode 26+)
 		-scheme initium \
 		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
 		-quiet
+
+test\:ios\:coverage: ## iOS tests with coverage (Xcode 26+; report only — floor enforcement deferred)
+	cd $(IOS_DIR) && xcodebuild test \
+		-project initium.xcodeproj \
+		-scheme initium \
+		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
+		-enableCodeCoverage YES \
+		-derivedDataPath build \
+		-quiet
+	@echo "iOS coverage data in $(IOS_DIR)/build/Build/ProfileData/."
+	@echo "Open Xcode (Report Navigator → Coverage) for the rendered report."
 
 test\:android: _ensure-android ## Android unit tests (./gradlew test)
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew test
