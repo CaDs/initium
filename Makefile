@@ -33,7 +33,7 @@ DB_URL := postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?
 OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || which /usr/local/opt/openssl/bin/openssl 2>/dev/null || echo openssl)
 
 # iOS simulator used by test:ios / dev:ios. Override with `make dev:ios IOS_SIM='iPhone 17'`.
-IOS_SIM ?= iPhone 16
+IOS_SIM ?= iPhone 17 Pro
 
 .PHONY: help \
         setup keygen clobber \
@@ -240,15 +240,21 @@ dev\:ios: _ensure-simulator ## iOS — boots simulator if needed, builds + runs 
 		-scheme initium \
 		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
 		-configuration Debug \
+		-derivedDataPath build \
 		build
-	@UDID=$$(xcrun simctl list devices booted 2>/dev/null | grep -oE '[A-F0-9-]{36}' | head -1); \
-	APP_PATH=$$(find $(IOS_DIR)/build $(HOME)/Library/Developer/Xcode/DerivedData -name 'initium.app' -path '*Debug-iphonesimulator*' -print -quit 2>/dev/null); \
-	if [ -n "$$APP_PATH" ] && [ -n "$$UDID" ]; then \
-		xcrun simctl install "$$UDID" "$$APP_PATH"; \
-		xcrun simctl launch "$$UDID" cads.initium; \
-	else \
-		echo "Build succeeded but could not auto-install. Open $(IOS_DIR)/initium.xcodeproj in Xcode and press Run."; \
-	fi
+	@APP_PATH="$(IOS_DIR)/build/Build/Products/Debug-iphonesimulator/initium.app"; \
+	UDID=$$(xcrun simctl list devices booted 2>/dev/null | grep -oE '[A-F0-9-]{36}' | head -1); \
+	if [ ! -d "$$APP_PATH" ]; then \
+		echo "Build succeeded but $$APP_PATH not found." >&2; exit 1; \
+	fi; \
+	if [ -z "$$UDID" ]; then \
+		echo "No simulator booted." >&2; exit 1; \
+	fi; \
+	echo "Installing $$APP_PATH on $$UDID"; \
+	xcrun simctl install "$$UDID" "$$APP_PATH"; \
+	BUNDLE_ID=$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$$APP_PATH/Info.plist"); \
+	echo "Launching $$BUNDLE_ID"; \
+	xcrun simctl launch "$$UDID" "$$BUNDLE_ID"
 
 dev\:android: ## Android — installs + launches the debug APK on a running emulator/device
 	cd $(ANDROID_DIR) && ./gradlew installDebug

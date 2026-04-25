@@ -2,6 +2,76 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!--
+	  Standard bundle metadata. Values use $(VAR) references that
+	  builtin-infoPlistUtility expands at build time via the
+	  -expandbuildsettings flag. We have to restate these here because
+	  Xcode 26.4 does NOT merge INFOPLIST_KEY_* build settings into the
+	  file when both INFOPLIST_FILE and GENERATE_INFOPLIST_FILE are set
+	  — only this file's contents reach the .app/Info.plist. An iOS app
+	  without CFBundleIdentifier fails the simulator's preflight check.
+	-->
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+
+	<!-- SwiftUI scene + launch chrome.
+	     UIApplicationSupportsMultipleScenes enables iPad multi-window. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UILaunchScreen</key>
+	<dict/>
+
+	<!-- Orientation support: portrait + landscape on iPhone, all four on iPad. -->
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- App Transport Security. NSAllowsLocalNetworking relaxes the
+	     cleartext-HTTP block for `localhost`, `.local`, and IPv4
+	     literals so the simulator can reach `http://localhost:8000`.
+	     Production HTTPS traffic is unaffected. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
+	<!-- Magic-link deep linking. Tapping `initium://auth/verify?token=…`
+	     routes the URL to this app, where SwiftUI's `.onOpenURL` in
+	     initiumApp.swift calls `authStore.verifyMagicLink(token:)`. -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -15,10 +85,5 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 </dict>
 </plist>

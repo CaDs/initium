@@ -21,6 +21,7 @@ mobile/ios/**/*.xcuserstate
 
 # Android (Jetpack Compose)
 mobile/android/.gradle/
+mobile/android/.kotlin/
 mobile/android/build/
 mobile/android/app/build/
 mobile/android/local.properties
