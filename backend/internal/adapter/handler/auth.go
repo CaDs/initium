@@ -277,11 +277,17 @@ func (h *AuthHandler) tokenCookies(pair *domain.TokenPair) []http.Cookie {
 	}
 }
 
+// clearedCookieJar is a precomputed slice returned by clearTokenCookies.
+// The values are static (empty token, MaxAge=-1) so we share one slice
+// rather than allocating per logout / refresh-failure call. Callers must
+// not mutate the returned slice.
+var clearedCookieJar = []http.Cookie{
+	{Name: "access_token", Value: "", Path: "/", MaxAge: -1},
+	{Name: "refresh_token", Value: "", Path: "/api/auth", MaxAge: -1},
+}
+
 func clearTokenCookies() []http.Cookie {
-	return []http.Cookie{
-		{Name: "access_token", Value: "", Path: "/", MaxAge: -1},
-		{Name: "refresh_token", Value: "", Path: "/api/auth", MaxAge: -1},
-	}
+	return clearedCookieJar
 }
 
 func writeChiError(w http.ResponseWriter, err error) {

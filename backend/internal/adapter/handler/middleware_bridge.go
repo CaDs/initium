@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -12,27 +13,40 @@ import (
 // chi middleware (e.g. httprate.LimitByIP) to specific Huma operations
 // without forcing every operation onto a chi sub-router.
 //
-// Mechanism: humachi.Unwrap exposes the underlying *http.Request and
-// http.ResponseWriter. We wrap a sentinel handler that records whether
-// the chi middleware called through. If it did, we proceed to next(ctx).
-// If the middleware short-circuited (e.g. wrote a 429 + returned), we
-// don't proceed — Huma's response is whatever the chi middleware wrote.
+// Mechanism: the chi middleware factory `mw` is invoked ONCE at setup and
+// produces a wrapper handler that internally calls our sentinel. The
+// sentinel records "the middleware called through" by flipping a *bool
+// stored in the per-request request context. Huma's per-request work is
+// then a single context.WithValue + r.WithContext + the chi wrapper's
+// own logic — no per-request middleware-chain rebuild.
 //
 // Caveat: any response the chi middleware writes (rate-limit error body,
 // CORS preflight) skips Huma's error-envelope formatter. Acceptable for
 // rate-limit-style middleware where the body shape is well-known.
 func HumaFromHTTP(mw func(http.Handler) http.Handler) func(huma.Context, func(huma.Context)) {
+	sentinel := http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		if p, ok := r.Context().Value(passedKey{}).(*bool); ok {
+			*p = true
+		}
+	})
+	wrapped := mw(sentinel) // built ONCE at startup
+
 	return func(ctx huma.Context, next func(huma.Context)) {
 		w, r := unwrap(ctx)
 		passed := false
-		mw(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-			passed = true
-		})).ServeHTTP(w, r)
+		r = r.WithContext(context.WithValue(r.Context(), passedKey{}, &passed))
+		wrapped.ServeHTTP(w, r)
 		if passed {
 			next(ctx)
 		}
 	}
 }
+
+// passedKey is the typed context key used by HumaFromHTTP to thread the
+// "middleware called through" signal from the sentinel back to the Huma
+// middleware. Defined as a struct (not a string) so it never collides with
+// other context keys.
+type passedKey struct{}
 
 // unwrap returns the underlying writer + request from a humachi context.
 // Wraps humachi.Unwrap to flip the return order so it reads more naturally

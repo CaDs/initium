@@ -12,6 +12,10 @@ import (
 	"github.com/eridia/initium/backend/internal/domain"
 )
 
+// auth_huma.go is the per-request hot path for every protected endpoint.
+// Anything added here runs N times per second under load — keep it lean
+// (no per-request map allocations, no struct copies that aren't needed).
+
 // HumaAuthMiddleware returns a Huma middleware that validates JWT access
 // tokens. Mirrors middleware.Auth's chi-native behavior so handler code
 // reads userID via middleware.GetUserID(ctx.Context()) unchanged.
@@ -77,18 +81,17 @@ func HumaRequireRole(api huma.API, role string, lookup middleware.RoleLookupFn) 
 
 // extractBearer reads the access token from `Authorization: Bearer ...` or
 // the `access_token` cookie. Mirrors the chi middleware's extractToken().
+//
+// The Authorization header is checked first because mobile clients send
+// the token there (no cookies); cookie parsing is the fallback for web.
+// Skipping cookie parsing when the header is present matters: huma.ReadCookie
+// walks every request header on every call.
 func extractBearer(ctx huma.Context) string {
 	if auth := ctx.Header("Authorization"); strings.HasPrefix(auth, "Bearer ") {
 		return strings.TrimPrefix(auth, "Bearer ")
 	}
-	// Parse cookies manually — huma.Context has no Cookie() method.
-	if cookieHdr := ctx.Header("Cookie"); cookieHdr != "" {
-		header := http.Header{}
-		header.Set("Cookie", cookieHdr)
-		req := http.Request{Header: header}
-		if c, err := req.Cookie("access_token"); err == nil {
-			return c.Value
-		}
+	if c, err := huma.ReadCookie(ctx, "access_token"); err == nil {
+		return c.Value
 	}
 	return ""
 }
