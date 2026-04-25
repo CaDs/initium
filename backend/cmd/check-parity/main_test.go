@@ -173,10 +173,10 @@ func TestStaticPathPrefix(t *testing.T) {
 	t.Parallel()
 
 	cases := map[string]string{
-		"/api/notes":              "/api/notes",
-		"/api/notes/{id}":         "/api/notes",
-		"/api/users/{id}/notes":   "/api/users",
-		"/healthz":                "/healthz",
+		"/api/notes":            "/api/notes",
+		"/api/notes/{id}":       "/api/notes",
+		"/api/users/{id}/notes": "/api/users",
+		"/healthz":              "/healthz",
 	}
 	for in, want := range cases {
 		t.Run(in, func(t *testing.T) {

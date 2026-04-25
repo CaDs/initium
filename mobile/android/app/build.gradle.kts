@@ -36,9 +36,10 @@ android {
             "DEV_BYPASS_AUTH",
             "${project.findProperty("DEV_BYPASS_AUTH") ?: "false"}"
         )
-        // Google Cloud Console OAuth 2.0 Web Client ID — required for
-        // Credential Manager's Google Sign-In. Leave empty to disable
-        // the Google button at runtime.
+        // Google Cloud Console OAuth 2.0 Web Client ID — gates the Google
+        // Sign-In button on LoginScreen (disabled when empty). The button
+        // itself is a stub; the real Credential Manager wiring lands in the
+        // follow-up PR that re-introduces androidx.credentials + googleid.
         buildConfigField(
             "String",
             "GOOGLE_SERVER_CLIENT_ID",
@@ -91,11 +92,6 @@ dependencies {
 
     // Secure token storage
     implementation(libs.androidx.security.crypto)
-
-    // Google Sign-In via Credential Manager
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services.auth)
-    implementation(libs.googleid)
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)

@@ -31,13 +31,13 @@ import (
 // the bottom of the file — adding a method to AuthService fails the
 // build until the mock catches up.
 type MockAuthService struct {
-	LoginWithGoogleFn      func(ctx context.Context, code string) (*domain.User, *domain.TokenPair, error)
-	VerifyGoogleIDTokenFn  func(ctx context.Context, idToken string) (*domain.User, *domain.TokenPair, error)
-	RequestMagicLinkFn     func(ctx context.Context, email string) error
-	VerifyMagicLinkFn      func(ctx context.Context, token string) (*domain.User, *domain.TokenPair, error)
-	RefreshTokensFn        func(ctx context.Context, refreshToken string) (*domain.TokenPair, error)
-	LogoutFn               func(ctx context.Context, refreshToken string) error
-	LogoutAllFn            func(ctx context.Context, userID string) error
+	LoginWithGoogleFn     func(ctx context.Context, code string) (*domain.User, *domain.TokenPair, error)
+	VerifyGoogleIDTokenFn func(ctx context.Context, idToken string) (*domain.User, *domain.TokenPair, error)
+	RequestMagicLinkFn    func(ctx context.Context, email string) error
+	VerifyMagicLinkFn     func(ctx context.Context, token string) (*domain.User, *domain.TokenPair, error)
+	RefreshTokensFn       func(ctx context.Context, refreshToken string) (*domain.TokenPair, error)
+	LogoutFn              func(ctx context.Context, refreshToken string) error
+	LogoutAllFn           func(ctx context.Context, userID string) error
 }
 
 func (m *MockAuthService) LoginWithGoogle(ctx context.Context, code string) (*domain.User, *domain.TokenPair, error) {
@@ -263,8 +263,8 @@ func (m *MockTokenGenerator) HashToken(token string) string {
 
 // MockOAuthVerifier is a hand-rolled mock for domain.OAuthVerifier.
 type MockOAuthVerifier struct {
-	ExchangeCodeFn   func(ctx context.Context, code string) (*domain.OAuthProfile, error)
-	VerifyIDTokenFn  func(ctx context.Context, idToken string) (*domain.OAuthProfile, error)
+	ExchangeCodeFn  func(ctx context.Context, code string) (*domain.OAuthProfile, error)
+	VerifyIDTokenFn func(ctx context.Context, idToken string) (*domain.OAuthProfile, error)
 }
 
 func (m *MockOAuthVerifier) ExchangeCode(ctx context.Context, code string) (*domain.OAuthProfile, error) {

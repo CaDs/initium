@@ -172,7 +172,6 @@ type logoutOutput struct {
 	Body      MessageResponse
 }
 
-
 // ----------------------------------------------------------------------
 // chi-native redirect handlers — stay as http.HandlerFunc
 // ----------------------------------------------------------------------
@@ -349,4 +348,3 @@ func Readyz(db *gorm.DB) http.HandlerFunc {
 		_, _ = w.Write([]byte(`{"status":"ok"}`))
 	}
 }
-

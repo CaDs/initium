@@ -1,8 +1,4 @@
 {
-  "meta": {
-    "title": "Initium",
-    "description": "Tu próxima gran idea comienza aquí."
-  },
   "nav": {
     "brand": "Initium",
     "logout": "Cerrar sesión",
@@ -23,16 +19,6 @@
   "devBanner": {
     "message": "Modo Dev — Sesión como dev@initium.local"
   },
-  "theme": {
-    "light": "Claro",
-    "dark": "Oscuro",
-    "system": "Sistema"
-  },
-  "a11y": {
-    "skipToMain": "Ir al contenido principal",
-    "mainNav": "Navegación principal",
-    "loading": "Cargando"
-  },
   "errors": {
     "title": "Algo salió mal",
     "body": "Ocurrió un error inesperado. Por favor, inténtalo de nuevo.",
@@ -42,8 +28,5 @@
     "title": "Página no encontrada",
     "body": "La página que buscas no existe.",
     "home": "Ir al inicio"
-  },
-  "loading": {
-    "label": "Cargando contenido"
   }
 }
