@@ -27,7 +27,7 @@ actor APIClient {
 
     private let baseURL: URL
     private let session: URLSession
-    private let tokenStorage: TokenStorage
+    private let tokenStorage: any TokenStorageProtocol
     private let onUnauthorized: @Sendable () -> Void
 
     /// Single-flight refresh guard — only one refresh runs at a time.
@@ -36,7 +36,7 @@ actor APIClient {
 
     init(
         baseURL: URL,
-        tokenStorage: TokenStorage,
+        tokenStorage: any TokenStorageProtocol,
         session: URLSession = .shared,
         onUnauthorized: @Sendable @escaping () -> Void = {}
     ) {
