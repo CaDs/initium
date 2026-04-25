@@ -29,5 +29,17 @@ func NewAPI(r chi.Router) huma.API {
 			BearerFormat: "JWT",
 		},
 	}
+	// Disable Huma's `$schema` linker — by default it injects a
+	// `$schema` URL into every JSON response body AND adds the field
+	// to every component schema in the spec. Three settings remove it:
+	//   - Transformers: nil drops the body-write hook.
+	//   - CreateHooks: nil drops the spec-mutation hook that adds the
+	//     $schema field to every component schema.
+	//   - SchemasPath: "" disables the runtime /schemas/{name} endpoint.
+	// Web Zod and mobile Codable parsers see only the declared shape.
+	cfg.SchemasPath = ""
+	cfg.Transformers = nil
+	cfg.CreateHooks = nil
+
 	return humachi.New(r, cfg)
 }

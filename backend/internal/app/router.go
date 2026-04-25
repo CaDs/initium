@@ -5,7 +5,6 @@ package app
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -63,44 +62,36 @@ func NewRouter(d RouterDeps) chi.Router {
 		r.Get("/_debug/routes", handler.RoutesDebug(r))
 	}
 
-	// Huma API — the source of truth for the OpenAPI spec. Operations
-	// declare full paths (e.g. /api/landing) and register on the same
-	// chi router, so the global middleware stack above applies.
+	// Huma API — source of truth for the OpenAPI spec. Operations
+	// register on the same chi router as the chi-native handlers, so
+	// the global middleware stack above applies. Per-operation auth /
+	// role gates use the Huma middleware adapter (see auth_huma.go).
 	api := NewAPI(r)
+	handler.InstallErrorEnvelope() // override huma.NewError once
+	authMW := handler.HumaAuthMiddleware(api, d.TokenGen, d.DevBypass)
+	requireAdmin := handler.HumaRequireRole(api, "admin", d.RoleLookup)
+
 	handler.RegisterLanding(api)
+	d.User.RegisterUser(api, authMW)
+	handler.RegisterAdmin(api, authMW, requireAdmin)
 
-	r.Route("/api", func(r chi.Router) {
-		// Auth routes (rate limited)
-		r.Route("/auth", func(r chi.Router) {
-			r.Use(httprate.LimitByIP(10, time.Minute))
+	// Chi-native routes for endpoints that don't fit the typed-API model.
+	// All under /api/auth keep their rate limiter via the chi sub-router.
+	r.Route("/api/auth", func(r chi.Router) {
+		r.Use(httprate.LimitByIP(10, time.Minute))
+		r.Get("/google", d.Auth.GoogleRedirect)
+		r.Get("/google/callback", d.Auth.GoogleCallback)
+		r.Post("/magic-link", d.Auth.RequestMagicLink)
+		r.Get("/verify", d.Auth.VerifyMagicLink)
+		r.Post("/refresh", d.Auth.RefreshTokens)
+		r.Post("/mobile/google", d.MobileAuth.GoogleIDToken)
+		r.Post("/mobile/verify", d.MobileAuth.VerifyMagicLink)
 
-			r.Get("/google", d.Auth.GoogleRedirect)
-			r.Get("/google/callback", d.Auth.GoogleCallback)
-			r.Post("/magic-link", d.Auth.RequestMagicLink)
-			r.Get("/verify", d.Auth.VerifyMagicLink)
-			r.Post("/refresh", d.Auth.RefreshTokens)
-			r.Post("/mobile/google", d.MobileAuth.GoogleIDToken)
-			r.Post("/mobile/verify", d.MobileAuth.VerifyMagicLink)
-		})
-
-		// Protected routes
+		// Logout endpoints (still chi-native; auth gate via chi middleware).
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Auth(d.TokenGen, d.DevBypass))
-
-			r.Get("/me", d.User.GetProfile)
-			r.Patch("/me", d.User.UpdateProfile)
-			r.Post("/auth/logout", d.Auth.Logout)
-			r.Post("/auth/logout-all", d.Auth.LogoutAll)
-		})
-
-		// Admin-only routes
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(d.TokenGen, d.DevBypass))
-			r.Use(middleware.RequireRole("admin", d.RoleLookup))
-
-			r.Get("/admin/ping", func(w http.ResponseWriter, req *http.Request) {
-				handler.JSON(w, req, http.StatusOK, map[string]string{"role": "admin"})
-			})
+			r.Post("/logout", d.Auth.Logout)
+			r.Post("/logout-all", d.Auth.LogoutAll)
 		})
 	})
 

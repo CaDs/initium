@@ -1,583 +1,192 @@
-openapi: "3.1.0"
+components:
+  schemas:
+    APIError:
+      additionalProperties: false
+      properties:
+        code:
+          description: Machine-readable error code in SNAKE_UPPER format
+          type: string
+        message:
+          description: Human-readable error message
+          type: string
+        request_id:
+          description: Correlates client error to server log entry
+          type: string
+      required:
+        - code
+        - message
+      type: object
+    AdminPingResponse:
+      additionalProperties: false
+      properties:
+        role:
+          enum:
+            - admin
+          type: string
+      required:
+        - role
+      type: object
+    LandingInfo:
+      additionalProperties: false
+      properties:
+        description:
+          description: Tagline shown on the landing page
+          type: string
+        name:
+          description: Product name
+          type: string
+        version:
+          description: API version
+          type: string
+      required:
+        - name
+        - description
+        - version
+      type: object
+    UpdateProfileInputBody:
+      additionalProperties: false
+      properties:
+        name:
+          description: New display name (1-100 characters)
+          maxLength: 100
+          minLength: 1
+          type: string
+      required:
+        - name
+      type: object
+    User:
+      additionalProperties: false
+      properties:
+        avatar_url:
+          description: URL to avatar image (empty when not set)
+          type: string
+        created_at:
+          description: Account creation timestamp
+          format: date-time
+          type: string
+        email:
+          description: Email address
+          format: email
+          type: string
+        id:
+          description: User UUID
+          format: uuid
+          type: string
+        name:
+          description: Display name
+          type: string
+        role:
+          description: Authorization role
+          enum:
+            - user
+            - admin
+          type: string
+      required:
+        - id
+        - email
+        - name
+        - avatar_url
+        - role
+        - created_at
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
 info:
+  description: POC starter template API. Generated from Go code by Huma — never hand-edit.
   title: Initium API
-  version: "0.1.0"
-  description: |
-    POC starter template API. This spec is the single source of truth for every
-    client contract (backend types, web types, mobile DTOs). Edit the spec, then
-    run `make gen:openapi`. Never hand-edit generated files.
-
-servers:
-  - url: http://localhost:8000
-    description: Local development
-
+  version: 0.1.0
+openapi: 3.1.0
 paths:
-  /healthz:
-    get:
-      summary: Liveness probe (no dependencies)
-      description: Always returns 200 when the process is up. Does not check database.
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthStatus"
-
-  /readyz:
-    get:
-      summary: Readiness probe (checks database connectivity)
-      description: Returns 200 when the database is reachable, 503 otherwise. Used by Fly.io health checks.
-      responses:
-        "200":
-          description: Ready
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadyStatus"
-        "503":
-          description: Not ready
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReadyStatus"
-
-  /_debug/routes:
-    get:
-      summary: List all registered HTTP routes (development only)
-      description: |
-        Returns the full chi router table. Mounted only when `APP_ENV != "production"`.
-        Used by `make routes` for local discovery. Returns 404 in production.
-      responses:
-        "200":
-          description: Route table
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RouteList"
-        "404":
-          description: Endpoint disabled in production
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/landing:
-    get:
-      summary: Public landing page data
-      responses:
-        "200":
-          description: Landing info
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LandingInfo"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/google:
-    get:
-      summary: Redirect to Google OAuth consent screen (browser flow)
-      description: Non-JSON response. Sets OAuth state cookie and 307-redirects to Google.
-      responses:
-        "307":
-          description: Redirect to Google consent screen
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/google/callback:
-    get:
-      summary: Google OAuth callback (browser flow)
-      description: Non-JSON response. Exchanges authorization code, sets session cookies, 307-redirects to /home.
-      parameters:
-        - name: code
-          in: query
-          required: true
-          schema:
-            type: string
-        - name: state
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        "307":
-          description: Redirect to /home with session cookies set
-        "400":
-          description: Invalid OAuth state or missing code
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: OAuth token exchange failed
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/magic-link:
-    post:
-      summary: Request magic link email
-      description: Rate limited at 10 requests per minute per IP.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MagicLinkRequest"
-      responses:
-        "200":
-          description: Magic link sent
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Invalid or missing email
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "429":
-          description: Rate limited
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/verify:
-    get:
-      summary: Verify magic link token (browser flow)
-      description: Non-JSON response. On success, sets session cookies and 307-redirects to /home.
-      parameters:
-        - name: token
-          in: query
-          required: true
-          schema:
-            type: string
-      responses:
-        "307":
-          description: Redirect to /home with session cookies set
-        "400":
-          description: Missing or invalid token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Token already used
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/refresh:
-    post:
-      summary: Refresh access token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshRequest"
-      responses:
-        "200":
-          description: New token pair
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenPair"
-        "401":
-          description: Refresh token missing, expired, or revoked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/mobile/google:
-    post:
-      summary: Mobile Google Sign-In (ID token verification)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MobileGoogleRequest"
-      responses:
-        "200":
-          description: Token pair for mobile client
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenPair"
-        "400":
-          description: Missing or malformed id_token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Invalid Google ID token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/mobile/verify:
-    post:
-      summary: Mobile magic link verification (returns JSON token pair)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MobileVerifyRequest"
-      responses:
-        "200":
-          description: Token pair for mobile client
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TokenPair"
-        "400":
-          description: Missing or invalid token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "409":
-          description: Token already used
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/logout:
-    post:
-      summary: Logout (revoke current session)
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Logged out
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/auth/logout-all:
-    post:
-      summary: Logout all sessions for this user
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: All sessions revoked
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /api/admin/ping:
     get:
-      summary: Admin liveness check (requires admin role)
-      security:
-        - bearerAuth: []
+      operationId: admin-ping
       responses:
         "200":
-          description: Caller is an admin
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminPingResponse"
-        "401":
-          description: Not authenticated
+          description: OK
+        default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Insufficient role
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-  /api/me:
-    get:
-      summary: Get current user profile
+                $ref: "#/components/schemas/APIError"
+          description: Error
       security:
         - bearerAuth: []
+      summary: Verify admin role enforcement
+      tags:
+        - admin
+  /api/landing:
+    get:
+      operationId: get-landing
       responses:
         "200":
-          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LandingInfo"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      summary: Public landing page data
+      tags:
+        - public
+  /api/me:
+    get:
+      operationId: get-me
+      responses:
+        "200":
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
-        "401":
-          description: Not authenticated
+          description: OK
+        default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-    patch:
-      summary: Update current user profile
+                $ref: "#/components/schemas/APIError"
+          description: Error
       security:
         - bearerAuth: []
+      summary: Get current user profile
+      tags:
+        - user
+    patch:
+      operationId: update-me
       requestBody:
-        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateProfileRequest"
+              $ref: "#/components/schemas/UpdateProfileInputBody"
+        required: true
       responses:
         "200":
-          description: Updated user profile
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
-        "400":
-          description: Invalid input
+          description: OK
+        default:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
-  schemas:
-    HealthStatus:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ok]
-
-    ReadyStatus:
-      type: object
-      required: [status]
-      properties:
-        status:
-          type: string
-          enum: [ok, unready]
-        error:
-          type: string
-          description: Present only when status is "unready"
-
-    LandingInfo:
-      type: object
-      required: [name, description, version]
-      properties:
-        name:
-          type: string
-        description:
-          type: string
-        version:
-          type: string
-
-    RouteList:
-      type: object
-      required: [routes]
-      properties:
-        routes:
-          type: array
-          items:
-            $ref: "#/components/schemas/RouteEntry"
-
-    RouteEntry:
-      type: object
-      required: [method, pattern]
-      properties:
-        method:
-          type: string
-        pattern:
-          type: string
-
-    AdminPingResponse:
-      type: object
-      required: [role]
-      properties:
-        role:
-          type: string
-          enum: [admin]
-
-    User:
-      type: object
-      required: [id, email, name, avatar_url, role, created_at]
-      properties:
-        id:
-          type: string
-          format: uuid
-        email:
-          type: string
-          format: email
-        name:
-          type: string
-        avatar_url:
-          type: string
-        role:
-          type: string
-          enum: [user, admin]
-        created_at:
-          type: string
-          format: date-time
-
-    TokenPair:
-      type: object
-      required: [access_token, refresh_token]
-      properties:
-        access_token:
-          type: string
-        refresh_token:
-          type: string
-
-    MagicLinkRequest:
-      type: object
-      required: [email]
-      properties:
-        email:
-          type: string
-          format: email
-
-    RefreshRequest:
-      type: object
-      required: [refresh_token]
-      properties:
-        refresh_token:
-          type: string
-
-    MobileGoogleRequest:
-      type: object
-      required: [id_token]
-      properties:
-        id_token:
-          type: string
-
-    MobileVerifyRequest:
-      type: object
-      required: [token]
-      properties:
-        token:
-          type: string
-
-    UpdateProfileRequest:
-      type: object
-      properties:
-        name:
-          type: string
-
-    MessageResponse:
-      type: object
-      required: [message]
-      properties:
-        message:
-          type: string
-
-    ErrorResponse:
-      type: object
-      required: [code, message]
-      properties:
-        code:
-          type: string
-          description: Machine-readable error code in SNAKE_UPPER format
-        message:
-          type: string
-          description: Human-readable error message (generic for 5xx to avoid leaking internals)
-        request_id:
-          type: string
-          description: Correlates client error to server log entry
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: Update current user's display name
+      tags:
+        - user
+servers:
+  - description: Local development
+    url: http://localhost:8000

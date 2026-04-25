@@ -158,8 +158,8 @@ db\:psql: ## Open psql against the dev database
 
 gen: gen\:openapi ## Regenerate all types from the OpenAPI spec (alias for gen:openapi)
 
-gen\:openapi: ## Regenerate Go + TypeScript types from backend/api/openapi.yaml
-	cd $(BACKEND_DIR) && go tool oapi-codegen -config internal/gen/api/config.yaml api/openapi.yaml
+gen\:openapi: ## Generate openapi.yaml from Huma + regenerate web TypeScript types
+	cd $(BACKEND_DIR) && go run ./cmd/gen-openapi
 	cd $(WEB_DIR) && npx openapi-typescript ../backend/api/openapi.yaml -o src/lib/api-types.ts
 
 # ============================================================================
@@ -341,13 +341,14 @@ build\:android: _ensure-android ## Android debug APK
 routes: ## Print HTTP route table from running backend (dev-only endpoint)
 	@bash scripts/routes.sh
 
-docs: ## Serve Swagger UI for backend/api/openapi.yaml on :$(DOCS_PORT)
-	@echo "Swagger UI: http://localhost:$(DOCS_PORT)"
-	@echo "Ctrl-C to stop."
-	docker run --rm -p $(DOCS_PORT):8080 \
-		-e SWAGGER_JSON=/spec/openapi.yaml \
-		-v $(PWD)/backend/api:/spec:ro \
-		swaggerapi/swagger-ui
+docs: ## Open the auto-generated API docs (requires `make dev:backend` running)
+	@echo "Huma serves rendered API docs at:"
+	@echo "  http://localhost:8000/docs"
+	@echo "Spec endpoints:"
+	@echo "  http://localhost:8000/openapi.yaml"
+	@echo "  http://localhost:8000/openapi.json"
+	@echo ""
+	@echo "Run \`make dev:backend\` first if not already running."
 
 check\:parity: ## Verify every /api/ spec path has a web consumer (mobile is paused — see mobile/AGENTS.md)
 	cd $(BACKEND_DIR) && go run ./cmd/check-parity
