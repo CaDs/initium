@@ -66,6 +66,7 @@ Thumbs.db
 # Testing
 coverage/
 *.coverprofile
+backend/coverage.out
 
 # Claude Code — ignore local settings, keep project-level skills
 .claude/*

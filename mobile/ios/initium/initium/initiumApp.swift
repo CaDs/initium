@@ -47,14 +47,7 @@ struct initiumApp: App {
     /// else is ignored silently so third-party scheme collisions don't
     /// crash the app.
     private func handleDeepLink(_ url: URL) {
-        guard url.scheme == "initium",
-              url.host == "auth",
-              url.path == "/verify",
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
-              !token.isEmpty
-        else { return }
-
+        guard let token = parseMagicLinkToken(from: url) else { return }
         Task {
             await authStore.verifyMagicLink(token: token)
         }

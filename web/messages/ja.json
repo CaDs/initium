@@ -1,8 +1,4 @@
 {
-  "meta": {
-    "title": "Initium",
-    "description": "次の素晴らしいアイデアはここから始まります。"
-  },
   "nav": {
     "brand": "Initium",
     "logout": "ログアウト",
@@ -23,16 +19,6 @@
   "devBanner": {
     "message": "開発モード — dev@initium.localとしてログイン中"
   },
-  "theme": {
-    "light": "ライト",
-    "dark": "ダーク",
-    "system": "システム"
-  },
-  "a11y": {
-    "skipToMain": "メインコンテンツへスキップ",
-    "mainNav": "メインナビゲーション",
-    "loading": "読み込み中"
-  },
   "errors": {
     "title": "エラーが発生しました",
     "body": "予期しないエラーが発生しました。もう一度お試しください。",
@@ -42,8 +28,5 @@
     "title": "ページが見つかりません",
     "body": "お探しのページは存在しません。",
     "home": "ホームへ"
-  },
-  "loading": {
-    "label": "コンテンツを読み込み中"
   }
 }

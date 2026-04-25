@@ -1,6 +1,6 @@
 // Package app wires the HTTP router. Extracted from cmd/server/main.go so
-// tests can build a router with stub dependencies and assert the registered
-// routes match the OpenAPI contract (see contract_test.go).
+// tests can build a router with stub dependencies. Spec/route parity is
+// enforced by `cmd/check-parity` and Huma's typed registration.
 package app
 
 import (
@@ -35,7 +35,8 @@ type RouterDeps struct {
 }
 
 // NewRouter wires every HTTP route. Mounted routes must match the OpenAPI
-// spec 1:1 — `contract_test.go` enforces this.
+// spec 1:1 — Huma registration is the source of truth, and `make check:parity`
+// catches spec paths with no client consumer.
 func NewRouter(d RouterDeps) chi.Router {
 	r := chi.NewRouter()
 

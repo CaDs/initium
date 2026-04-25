@@ -9,7 +9,7 @@ import com.example.initium.BuildConfig
 import com.example.initium.InitiumApplication
 import com.example.initium.api.ApiClient
 import com.example.initium.api.ApiException
-import com.example.initium.api.TokenStore
+import com.example.initium.api.TokenStorage
 import com.example.initium.api.User
 import com.example.initium.api.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +35,7 @@ sealed interface AuthState {
 
 class AuthViewModel(
     private val api: ApiClient,
-    private val tokenStore: TokenStore,
+    private val tokenStore: TokenStorage,
     private val devBypass: Boolean = BuildConfig.DEV_BYPASS_AUTH,
 ) : ViewModel() {
 

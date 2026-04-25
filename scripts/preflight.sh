@@ -18,8 +18,12 @@ trap 'red "preflight FAILED"' ERR
 step "lint (backend + web, parallel)"
 make lint
 
-step "test (backend + web, parallel)"
-make test
+step "test:coverage (backend + web, parallel — phased floors)"
+# Coverage gates run instead of plain `make test` so a regression in
+# coverage fails the same gate that catches functional regressions.
+# Floors are intentionally low (35% backend, 25% web) and ramp toward
+# 80% in follow-up PRs as coverage grows.
+make -j2 test:backend:coverage test:web:coverage
 
 step "check:gen-drift (openapi.yaml + api-types.ts up to date)"
 # Regenerate the artifacts that downstream stacks consume. If a PR added

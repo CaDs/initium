@@ -8,9 +8,9 @@ import (
 
 // UserModel is the GORM representation of a user.
 type UserModel struct {
-	ID           string  `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Email        string  `gorm:"uniqueIndex;not null"`
-	Name         string  `gorm:"not null;default:''"`
+	ID           string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Email        string `gorm:"uniqueIndex;not null"`
+	Name         string `gorm:"not null;default:''"`
 	AvatarURL    *string
 	AuthProvider string    `gorm:"not null"`
 	Role         string    `gorm:"not null;default:'user'"`
@@ -56,12 +56,12 @@ func UserModelFromDomain(u *domain.User) *UserModel {
 
 // SessionModel is the GORM representation of a session.
 type SessionModel struct {
-	ID               string     `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	UserID           string     `gorm:"type:uuid;not null;index"`
-	RefreshTokenHash string     `gorm:"uniqueIndex;not null"`
-	ExpiresAt        time.Time  `gorm:"not null"`
+	ID               string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	UserID           string    `gorm:"type:uuid;not null;index"`
+	RefreshTokenHash string    `gorm:"uniqueIndex;not null"`
+	ExpiresAt        time.Time `gorm:"not null"`
 	RevokedAt        *time.Time
-	CreatedAt        time.Time  `gorm:"not null;default:now()"`
+	CreatedAt        time.Time `gorm:"not null;default:now()"`
 }
 
 func (SessionModel) TableName() string { return "sessions" }
@@ -90,12 +90,12 @@ func SessionModelFromDomain(s *domain.Session) *SessionModel {
 
 // MagicLinkTokenModel is the GORM representation of a magic link token.
 type MagicLinkTokenModel struct {
-	ID        string     `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Email     string     `gorm:"not null"`
-	TokenHash string     `gorm:"uniqueIndex;not null"`
-	ExpiresAt time.Time  `gorm:"not null"`
+	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Email     string    `gorm:"not null"`
+	TokenHash string    `gorm:"uniqueIndex;not null"`
+	ExpiresAt time.Time `gorm:"not null"`
 	UsedAt    *time.Time
-	CreatedAt time.Time  `gorm:"not null;default:now()"`
+	CreatedAt time.Time `gorm:"not null;default:now()"`
 }
 
 func (MagicLinkTokenModel) TableName() string { return "magic_link_tokens" }

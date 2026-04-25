@@ -8,10 +8,10 @@ import (
 
 // Config holds all application configuration loaded from environment variables.
 type Config struct {
-	AppEnv         string
-	AppURL         string
-	HTTPPort       int
-	DevBypassAuth  bool
+	AppEnv        string
+	AppURL        string
+	HTTPPort      int
+	DevBypassAuth bool
 
 	DBHost     string
 	DBPort     int

@@ -27,8 +27,23 @@ func main() {
 
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})))
 
-	// Build a router with stub deps. We only need route registration;
-	// handlers are never invoked, so nil services are safe.
+	yaml, err := generateSpec()
+	if err != nil {
+		slog.Error("generating openapi spec", "error", err)
+		os.Exit(1)
+	}
+
+	if err := os.WriteFile(*out, yaml, 0o644); err != nil {
+		slog.Error("writing spec", "path", *out, "error", err)
+		os.Exit(1)
+	}
+	fmt.Printf("wrote %s (%d bytes)\n", *out, len(yaml))
+}
+
+// generateSpec builds the full Huma API graph with stub deps and returns
+// the marshalled OpenAPI YAML. Extracted from main so tests can assert
+// the spec shape without going through the filesystem.
+func generateSpec() ([]byte, error) {
 	r := chi.NewRouter()
 	api := app.NewAPI(r)
 	handler.InstallErrorEnvelope()
@@ -46,17 +61,7 @@ func main() {
 	handler.NewAuthHandler(nil, nil, "", false).RegisterAuth(api, authMW, noopMW)
 	handler.NewMobileAuthHandler(nil).RegisterMobileAuth(api, noopMW)
 
-	yaml, err := api.OpenAPI().YAML()
-	if err != nil {
-		slog.Error("marshalling openapi spec", "error", err)
-		os.Exit(1)
-	}
-
-	if err := os.WriteFile(*out, yaml, 0o644); err != nil {
-		slog.Error("writing spec", "path", *out, "error", err)
-		os.Exit(1)
-	}
-	fmt.Printf("wrote %s (%d bytes)\n", *out, len(yaml))
+	return api.OpenAPI().YAML()
 }
 
 // stubTokenGen / stubRoleLookup satisfy the constructor signatures so we

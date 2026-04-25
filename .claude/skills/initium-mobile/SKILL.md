@@ -129,11 +129,42 @@ file references checked by `make check:skills`:
 - [patterns/android.md](patterns/android.md) — Jetpack Compose,
   Material 3, `NavigationSuiteScaffold`, `StateFlow`, Compose UI tests.
 
+## Testing
+
+Both apps follow the **protocol/interface refactor pattern** so the
+auth state machine is unit-testable without spinning up the real API
+client or token store.
+
+- **iOS**: `APIClientProtocol` + `TokenStorageProtocol` extracted in
+  `mobile/ios/initium/initium/API/`. `AuthStore` accepts `any
+  APIClientProtocol` and `any TokenStorageProtocol`. Tests use
+  `MockAPIClient` + `MockTokenStorage` from
+  `initiumTests/MockAPIClient.swift` <!-- expect: MockAPIClient -->.
+  Run with `make test:ios` or `make test:ios:coverage`.
+- **Android**: `ApiClient` + `TokenStorage` interfaces in
+  `mobile/android/app/src/main/java/com/example/initium/api/`. The
+  concrete class for the network client is `OkHttpApiClient`; the
+  concrete token store remains `TokenStore` (now implements the
+  interface). `AuthViewModel` accepts both interfaces. Tests use
+  `FakeApiClient` + `FakeTokenStore` from
+  `app/src/test/java/com/example/initium/api/FakeApiClient.kt` <!-- expect: FakeApiClient -->.
+  ApiClient tests use `MockWebServer` (no Robolectric needed). Run
+  with `make test:android` or `make test:android:coverage`
+  (Jacoco; 25% line floor, ramps to 80% in follow-ups).
+- Coverage gates are mobile-side only (not in `make preflight`)
+  because Xcode + Android SDK aren't guaranteed in every dev
+  environment. Run them when touching the mobile apps before merging.
+
 ## Canonical exemplars
 
 Cross-platform (paths apply to both apps equally):
 
 - Parity rule: `.claude/skills/_shared/parity.md`
 - Mobile-wide agent doc: `mobile/AGENTS.md`
+
+Auth state machines (protocol-injection ready):
+
+- iOS: `mobile/ios/initium/initium/Auth/AuthStore.swift` <!-- expect: AuthStore -->
+- Android: `mobile/android/app/src/main/java/com/example/initium/auth/AuthViewModel.kt` <!-- expect: AuthViewModel -->
 
 Platform-specific exemplars live in the platform pattern docs.
