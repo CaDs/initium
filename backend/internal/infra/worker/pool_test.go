@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/eridia/initium/backend/internal/infra/worker"
 )
 
@@ -34,7 +36,6 @@ func TestPool_ProcessesAllJobs(t *testing.T) {
 		t.Fatal("pool did not process all jobs within 2s")
 	}
 
-	if got := processed.Load(); got != jobCount {
-		t.Errorf("expected %d processed jobs, got %d", jobCount, got)
-	}
+	assert.Equal(t, int64(jobCount), processed.Load(),
+		"every submitted job must be processed before Close returns")
 }

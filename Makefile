@@ -50,7 +50,7 @@ GRADLE_ENV := JAVA_HOME="$(ANDROID_STUDIO_JBR)" ANDROID_HOME="$(ANDROID_SDK)"
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
         db\:migrate db\:rollback db\:reset db\:seed db\:create db\:psql \
         gen gen\:openapi \
-        test test\:backend test\:web test\:ios test\:android test\:contract test\:all \
+        test test\:backend test\:backend\:coverage test\:web test\:ios test\:android test\:contract test\:all \
         lint lint\:backend lint\:web lint\:ios lint\:android \
         format format\:backend format\:web format\:ios format\:android \
         dev dev\:backend dev\:web dev\:ios dev\:android \
@@ -171,6 +171,14 @@ test: ## Fast suite (backend + web unit tests, parallel). Native mobile runs sep
 
 test\:backend: ## Backend Go tests with race detector
 	cd $(BACKEND_DIR) && go test ./... -v -race -count=1
+
+test\:backend\:coverage: ## Backend tests + coverage report (fails under 35% — phased ramp toward 80%)
+	cd $(BACKEND_DIR) && go test ./... -race -count=1 -coverprofile=coverage.out
+	@cd $(BACKEND_DIR) && go tool cover -func coverage.out | awk '/^total:/{ \
+		pct = substr($$3, 1, length($$3)-1) + 0; \
+		printf "backend coverage: %.1f%%\n", pct; \
+		if (pct < 35.0) { print "FAIL: coverage below 35% floor"; exit 1 } \
+	}'
 
 test\:web: ## Web Vitest suite
 	cd $(WEB_DIR) && npm run test

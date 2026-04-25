@@ -6,37 +6,33 @@ import (
 	"encoding/pem"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupTestGenerator(t *testing.T) *JWTGenerator {
 	t.Helper()
 
 	pub, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatalf("generating ed25519 key: %v", err)
-	}
+	require.NoError(t, err, "generating ed25519 key")
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
-		t.Fatalf("marshalling private key: %v", err)
-	}
+	require.NoError(t, err, "marshalling private key")
 	pubBytes, err := x509.MarshalPKIXPublicKey(pub)
-	if err != nil {
-		t.Fatalf("marshalling public key: %v", err)
-	}
+	require.NoError(t, err, "marshalling public key")
 
 	privPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privBytes})
 	pubPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: pubBytes})
 
-	privFile := t.TempDir() + "/priv.pem"
-	pubFile := t.TempDir() + "/pub.pem"
-	os.WriteFile(privFile, privPEM, 0600)
-	os.WriteFile(pubFile, pubPEM, 0644)
+	dir := t.TempDir()
+	privFile := dir + "/priv.pem"
+	pubFile := dir + "/pub.pem"
+	require.NoError(t, os.WriteFile(privFile, privPEM, 0600))
+	require.NoError(t, os.WriteFile(pubFile, pubPEM, 0644))
 
 	gen, err := NewJWTGenerator(privFile, pubFile)
-	if err != nil {
-		t.Fatalf("creating JWT generator: %v", err)
-	}
+	require.NoError(t, err, "creating JWT generator")
 	return gen
 }
 
@@ -45,76 +41,50 @@ func TestJWTGenerator_GenerateAndValidateAccessToken(t *testing.T) {
 	gen := setupTestGenerator(t)
 
 	token, err := gen.GenerateAccessToken("user-123", "test@example.com")
-	if err != nil {
-		t.Fatalf("generating access token: %v", err)
-	}
-
-	if token == "" {
-		t.Fatal("expected non-empty token")
-	}
+	require.NoError(t, err)
+	assert.NotEmpty(t, token, "token must not be empty")
 
 	userID, email, err := gen.ValidateAccessToken(token)
-	if err != nil {
-		t.Fatalf("validating access token: %v", err)
-	}
-
-	if userID != "user-123" {
-		t.Errorf("expected userID %q, got %q", "user-123", userID)
-	}
-	if email != "test@example.com" {
-		t.Errorf("expected email %q, got %q", "test@example.com", email)
-	}
+	require.NoError(t, err)
+	assert.Equal(t, "user-123", userID)
+	assert.Equal(t, "test@example.com", email)
 }
 
-func TestJWTGenerator_ValidateAccessToken_InvalidToken(t *testing.T) {
+func TestJWTGenerator_ValidateAccessToken_InvalidToken_ReturnsError(t *testing.T) {
 	t.Parallel()
 	gen := setupTestGenerator(t)
 
 	_, _, err := gen.ValidateAccessToken("not-a-jwt")
-	if err == nil {
-		t.Fatal("expected error for invalid token")
-	}
+	assert.Error(t, err, "expected error for invalid token")
 }
 
-func TestJWTGenerator_ValidateAccessToken_WrongKey(t *testing.T) {
+func TestJWTGenerator_ValidateAccessToken_WrongKey_ReturnsError(t *testing.T) {
 	t.Parallel()
 	gen1 := setupTestGenerator(t)
 	gen2 := setupTestGenerator(t)
 
 	token, err := gen1.GenerateAccessToken("user-123", "test@example.com")
-	if err != nil {
-		t.Fatalf("generating token: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, _, err = gen2.ValidateAccessToken(token)
-	if err == nil {
-		t.Fatal("expected error when validating with wrong key")
-	}
+	assert.Error(t, err, "validating with wrong key must fail")
 }
 
-func TestJWTGenerator_GenerateRefreshToken(t *testing.T) {
+func TestJWTGenerator_GenerateRefreshToken_ReturnsUniqueTokens(t *testing.T) {
 	t.Parallel()
 	gen := setupTestGenerator(t)
 
 	token1, err := gen.GenerateRefreshToken()
-	if err != nil {
-		t.Fatalf("generating refresh token: %v", err)
-	}
-
+	require.NoError(t, err)
 	token2, err := gen.GenerateRefreshToken()
-	if err != nil {
-		t.Fatalf("generating refresh token: %v", err)
-	}
+	require.NoError(t, err)
 
-	if token1 == "" || token2 == "" {
-		t.Fatal("expected non-empty tokens")
-	}
-	if token1 == token2 {
-		t.Error("expected unique refresh tokens")
-	}
+	assert.NotEmpty(t, token1)
+	assert.NotEmpty(t, token2)
+	assert.NotEqual(t, token1, token2, "refresh tokens must be unique")
 }
 
-func TestJWTGenerator_HashToken(t *testing.T) {
+func TestJWTGenerator_HashToken_DeterministicAndCollisionResistant(t *testing.T) {
 	t.Parallel()
 	gen := setupTestGenerator(t)
 
@@ -122,13 +92,7 @@ func TestJWTGenerator_HashToken(t *testing.T) {
 	hash2 := gen.HashToken("my-token")
 	hash3 := gen.HashToken("different-token")
 
-	if hash1 != hash2 {
-		t.Error("same input should produce same hash")
-	}
-	if hash1 == hash3 {
-		t.Error("different inputs should produce different hashes")
-	}
-	if len(hash1) != 64 {
-		t.Errorf("expected 64-char hex SHA-256, got %d chars", len(hash1))
-	}
+	assert.Equal(t, hash1, hash2, "same input must produce same hash")
+	assert.NotEqual(t, hash1, hash3, "different inputs must produce different hashes")
+	assert.Len(t, hash1, 64, "SHA-256 hex output must be 64 characters")
 }
