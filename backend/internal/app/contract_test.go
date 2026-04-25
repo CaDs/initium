@@ -20,13 +20,19 @@ import (
 // not documented in the OpenAPI spec. Keep this list short and justified.
 // Chi registers r.Handle() for all HTTP methods, so we match by path only.
 var excludedPaths = map[string]bool{
-	"/metrics": true, // Prometheus scrape endpoint, not an API contract
+	"/metrics":            true, // Prometheus scrape endpoint, not an API contract
+	"/docs":               true, // Huma runtime — auto-rendered docs UI
+	"/openapi.yaml":       true, // Huma runtime spec endpoint
+	"/openapi.json":       true, // Huma runtime spec endpoint
+	"/openapi-3.0.yaml":   true, // Huma runtime spec endpoint
+	"/openapi-3.0.json":   true, // Huma runtime spec endpoint
+	"/schemas/{schema}":   true, // Huma runtime — per-schema JSON Schema
 }
 
 // TestRouter_MatchesOpenAPISpec asserts that every route registered on the
 // chi router has a corresponding path in backend/api/openapi.yaml, and vice
-// versa. If this test fails, either add the route to the spec or the spec
-// to the router — never silence it.
+// versa. Deleted in the next migration step — once the spec is generated
+// from Huma, route↔spec parity is structurally guaranteed.
 func TestRouter_MatchesOpenAPISpec(t *testing.T) {
 	t.Parallel()
 

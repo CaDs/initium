@@ -63,9 +63,13 @@ func NewRouter(d RouterDeps) chi.Router {
 		r.Get("/_debug/routes", handler.RoutesDebug(r))
 	}
 
-	r.Route("/api", func(r chi.Router) {
-		r.Get("/landing", handler.Landing)
+	// Huma API — the source of truth for the OpenAPI spec. Operations
+	// declare full paths (e.g. /api/landing) and register on the same
+	// chi router, so the global middleware stack above applies.
+	api := NewAPI(r)
+	handler.RegisterLanding(api)
 
+	r.Route("/api", func(r chi.Router) {
 		// Auth routes (rate limited)
 		r.Route("/auth", func(r chi.Router) {
 			r.Use(httprate.LimitByIP(10, time.Minute))
