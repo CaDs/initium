@@ -43,6 +43,64 @@ components:
         - description
         - version
       type: object
+    MagicLinkInputBody:
+      additionalProperties: false
+      properties:
+        email:
+          description: User email
+          format: email
+          type: string
+      required:
+        - email
+      type: object
+    MessageResponse:
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+      required:
+        - message
+      type: object
+    MobileGoogleInputBody:
+      additionalProperties: false
+      properties:
+        id_token:
+          description: Google ID token from the mobile SDK
+          minLength: 1
+          type: string
+      required:
+        - id_token
+      type: object
+    MobileVerifyInputBody:
+      additionalProperties: false
+      properties:
+        token:
+          description: Magic-link token from the deep link
+          minLength: 1
+          type: string
+      required:
+        - token
+      type: object
+    RefreshInputBody:
+      additionalProperties: false
+      properties:
+        refresh_token:
+          description: Refresh token (mobile JSON body)
+          type: string
+      type: object
+    TokenPair:
+      additionalProperties: false
+      properties:
+        access_token:
+          description: "Short-lived JWT (~15 min) for the Authorization: Bearer header"
+          type: string
+        refresh_token:
+          description: Long-lived token (~7 days) for renewing the access token
+          type: string
+      required:
+        - access_token
+        - refresh_token
+      type: object
     UpdateProfileInputBody:
       additionalProperties: false
       properties:
@@ -121,6 +179,176 @@ paths:
       summary: Verify admin role enforcement
       tags:
         - admin
+  /api/auth/logout:
+    post:
+      operationId: logout
+      parameters:
+        - description: Refresh token to revoke (web cookie)
+          in: cookie
+          name: refresh_token
+          schema:
+            description: Refresh token to revoke (web cookie)
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: Revoke the current session
+      tags:
+        - auth
+  /api/auth/logout-all:
+    post:
+      operationId: logout-all
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      security:
+        - bearerAuth: []
+      summary: Revoke every session for the current user
+      tags:
+        - auth
+  /api/auth/magic-link:
+    post:
+      operationId: request-magic-link
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MagicLinkInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      summary: Email a one-use magic link
+      tags:
+        - auth
+  /api/auth/mobile/google:
+    post:
+      operationId: mobile-google-id-token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileGoogleInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      summary: Exchange a Google ID token for a session (mobile flow)
+      tags:
+        - auth
+        - mobile
+  /api/auth/mobile/verify:
+    post:
+      operationId: mobile-verify-magic-link
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MobileVerifyInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+          description: OK
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      summary: Exchange a magic-link token for a session (mobile flow)
+      tags:
+        - auth
+        - mobile
+  /api/auth/refresh:
+    post:
+      operationId: refresh-tokens
+      parameters:
+        - description: Refresh token (web cookie path /api/auth)
+          in: cookie
+          name: refresh_token
+          schema:
+            description: Refresh token (web cookie path /api/auth)
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshInputBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenPair"
+          description: OK
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIError"
+          description: Error
+      summary: Exchange a refresh token for a new access + refresh pair
+      tags:
+        - auth
   /api/landing:
     get:
       operationId: get-landing

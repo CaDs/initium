@@ -62,37 +62,30 @@ func NewRouter(d RouterDeps) chi.Router {
 		r.Get("/_debug/routes", handler.RoutesDebug(r))
 	}
 
-	// Huma API — source of truth for the OpenAPI spec. Operations
-	// register on the same chi router as the chi-native handlers, so
-	// the global middleware stack above applies. Per-operation auth /
-	// role gates use the Huma middleware adapter (see auth_huma.go).
-	api := NewAPI(r)
+	// Huma API — source of truth for the OpenAPI spec. All JSON-in /
+	// JSON-out endpoints register here. Per-operation middleware (auth,
+	// role, rate limit) is wired via huma.Operation.Middlewares and the
+	// Huma-flavor adapters in handler/auth_huma.go +
+	// handler/middleware_bridge.go.
 	handler.InstallErrorEnvelope() // override huma.NewError once
+	api := NewAPI(r)
 	authMW := handler.HumaAuthMiddleware(api, d.TokenGen, d.DevBypass)
 	requireAdmin := handler.HumaRequireRole(api, "admin", d.RoleLookup)
+	rateLimitMW := handler.HumaFromHTTP(httprate.LimitByIP(10, time.Minute))
 
 	handler.RegisterLanding(api)
 	d.User.RegisterUser(api, authMW)
 	handler.RegisterAdmin(api, authMW, requireAdmin)
+	d.Auth.RegisterAuth(api, authMW, rateLimitMW)
+	d.MobileAuth.RegisterMobileAuth(api, rateLimitMW)
 
-	// Chi-native routes for endpoints that don't fit the typed-API model.
-	// All under /api/auth keep their rate limiter via the chi sub-router.
+	// Chi-native routes — browser-flow redirects with Set-Cookie. Same
+	// rate limiter as the JSON auth endpoints, applied chi-style here.
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Use(httprate.LimitByIP(10, time.Minute))
 		r.Get("/google", d.Auth.GoogleRedirect)
 		r.Get("/google/callback", d.Auth.GoogleCallback)
-		r.Post("/magic-link", d.Auth.RequestMagicLink)
 		r.Get("/verify", d.Auth.VerifyMagicLink)
-		r.Post("/refresh", d.Auth.RefreshTokens)
-		r.Post("/mobile/google", d.MobileAuth.GoogleIDToken)
-		r.Post("/mobile/verify", d.MobileAuth.VerifyMagicLink)
-
-		// Logout endpoints (still chi-native; auth gate via chi middleware).
-		r.Group(func(r chi.Router) {
-			r.Use(middleware.Auth(d.TokenGen, d.DevBypass))
-			r.Post("/logout", d.Auth.Logout)
-			r.Post("/logout-all", d.Auth.LogoutAll)
-		})
 	})
 
 	return r

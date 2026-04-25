@@ -70,7 +70,10 @@ func InstallErrorEnvelope() {
 		// failure). Best-effort code derivation from status.
 		code := "INTERNAL_ERROR"
 		switch status {
-		case 400:
+		case 400, 422:
+			// 422 is what Huma returns when struct-tag validation fails
+			// (required, format, minLength, etc.). Map to INVALID_INPUT
+			// so clients see the same code as for hand-rolled 400s.
 			code = "INVALID_INPUT"
 		case 401:
 			code = "INVALID_CREDENTIALS"

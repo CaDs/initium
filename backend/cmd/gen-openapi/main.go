@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
@@ -37,14 +38,13 @@ func main() {
 	// Operation.Middlewares slice to be valid.
 	authMW := handler.HumaAuthMiddleware(api, stubTokenGen{}, false)
 	requireAdmin := handler.HumaRequireRole(api, "admin", stubRoleLookup)
+	noopMW := func(ctx huma.Context, next func(huma.Context)) { next(ctx) }
 
 	handler.RegisterLanding(api)
 	handler.NewUserHandler(nil).RegisterUser(api, authMW)
 	handler.RegisterAdmin(api, authMW, requireAdmin)
-
-	// TODO: register the remaining auth JSON operations once they migrate.
-	// For now (step 2) the magic-link / refresh / logout / mobile auth
-	// endpoints stay chi-native and are not in the generated spec.
+	handler.NewAuthHandler(nil, nil, "", false).RegisterAuth(api, authMW, noopMW)
+	handler.NewMobileAuthHandler(nil).RegisterMobileAuth(api, noopMW)
 
 	yaml, err := api.OpenAPI().YAML()
 	if err != nil {
