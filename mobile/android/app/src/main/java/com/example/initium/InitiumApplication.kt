@@ -2,6 +2,7 @@ package com.example.initium
 
 import android.app.Application
 import com.example.initium.api.ApiClient
+import com.example.initium.api.OkHttpApiClient
 import com.example.initium.api.TokenStore
 
 /**
@@ -31,7 +32,7 @@ class InitiumApplication : Application() {
         }
 
         tokenStore = TokenStore(this)
-        apiClient = ApiClient(
+        apiClient = OkHttpApiClient(
             tokenStore = tokenStore,
             onUnauthorized = { onUnauthorized() },
         )

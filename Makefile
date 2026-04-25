@@ -207,6 +207,10 @@ test\:ios\:coverage: ## iOS tests with coverage (Xcode 26+; report only — floo
 test\:android: _ensure-android ## Android unit tests (./gradlew test)
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew test
 
+test\:android\:coverage: _ensure-android ## Android tests + Jacoco (fails under 25% line coverage)
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew jacocoCoverageVerification
+	@echo "Android coverage report: $(ANDROID_DIR)/app/build/reports/jacoco/jacocoTestReport/html/index.html"
+
 test\:android\:instrumented: _ensure-android ## Android Compose UI tests (requires running emulator or device)
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew connectedAndroidTest
 

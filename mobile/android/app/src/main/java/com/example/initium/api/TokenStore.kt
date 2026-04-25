@@ -6,6 +6,20 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
 /**
+ * Public surface of [TokenStore]. Tests substitute an in-memory fake
+ * (`FakeTokenStore`) instead of spinning up `EncryptedSharedPreferences`,
+ * which would require Robolectric or a real device for a single keychain
+ * check. Production code accepts the interface and the
+ * [InitiumApplication] composition root supplies the concrete class.
+ */
+interface TokenStorage {
+    fun save(tokens: TokenPair)
+    fun accessToken(): String?
+    fun refreshToken(): String?
+    fun clear()
+}
+
+/**
  * Persists the access + refresh token pair in EncryptedSharedPreferences.
  *
  * The store survives app restarts but NOT app uninstall. We pair it
@@ -18,7 +32,7 @@ import androidx.security.crypto.MasterKey
  * writes (e.g. refresh racing logout) are serialized externally by
  * the ApiClient's refresh mutex.
  */
-class TokenStore(context: Context) {
+class TokenStore(context: Context) : TokenStorage {
 
     private val prefs: SharedPreferences = run {
         val masterKey = MasterKey.Builder(context)
@@ -44,18 +58,18 @@ class TokenStore(context: Context) {
         encrypted
     }
 
-    fun save(tokens: TokenPair) {
+    override fun save(tokens: TokenPair) {
         prefs.edit()
             .putString(KEY_ACCESS, tokens.accessToken)
             .putString(KEY_REFRESH, tokens.refreshToken)
             .apply()
     }
 
-    fun accessToken(): String? = prefs.getString(KEY_ACCESS, null)
+    override fun accessToken(): String? = prefs.getString(KEY_ACCESS, null)
 
-    fun refreshToken(): String? = prefs.getString(KEY_REFRESH, null)
+    override fun refreshToken(): String? = prefs.getString(KEY_REFRESH, null)
 
-    fun clear() {
+    override fun clear() {
         prefs.edit().remove(KEY_ACCESS).remove(KEY_REFRESH).apply()
     }
 

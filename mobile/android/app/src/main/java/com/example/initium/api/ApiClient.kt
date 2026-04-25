@@ -25,6 +25,19 @@ private val JSON = "application/json; charset=utf-8".toMediaType()
 private const val HEADER_SKIP_AUTH = "X-Initium-Skip-Auth"
 
 /**
+ * API surface for the auth + profile endpoints. Production code holds an
+ * [ApiClient] (interface); tests substitute an in-memory fake. The real
+ * implementation is [OkHttpApiClient], wired in [InitiumApplication].
+ */
+interface ApiClient {
+    suspend fun requestMagicLink(email: String): MessageResponse
+    suspend fun verifyMagicLink(token: String): TokenPair
+    suspend fun verifyGoogleIdToken(idToken: String): TokenPair
+    suspend fun me(): User
+    suspend fun logout()
+}
+
+/**
  * Thin hand-written API client for the auth + profile endpoints.
  *
  * Concerns:
@@ -47,11 +60,11 @@ private const val HEADER_SKIP_AUTH = "X-Initium-Skip-Auth"
  *   this to their auth state machine so the UI drops to the login
  *   screen.
  */
-class ApiClient(
-    private val tokenStore: TokenStore,
+class OkHttpApiClient(
+    private val tokenStore: TokenStorage,
     baseUrl: String = BuildConfig.API_BASE_URL,
     private val onUnauthorized: () -> Unit = {},
-) {
+) : ApiClient {
 
     private val baseUrl = baseUrl.trimEnd('/')
     private val moshi: Moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
@@ -74,10 +87,10 @@ class ApiClient(
     // Public API — one suspend fun per endpoint.
     // ------------------------------------------------------------------
 
-    suspend fun requestMagicLink(email: String): MessageResponse =
+    override suspend fun requestMagicLink(email: String): MessageResponse =
         post("/api/auth/magic-link", MagicLinkRequest(email), MessageResponse::class.java, skipAuth = true)
 
-    suspend fun verifyMagicLink(token: String): TokenPair {
+    override suspend fun verifyMagicLink(token: String): TokenPair {
         val pair = post(
             "/api/auth/mobile/verify",
             MobileVerifyRequest(token),
@@ -88,7 +101,7 @@ class ApiClient(
         return pair
     }
 
-    suspend fun verifyGoogleIdToken(idToken: String): TokenPair {
+    override suspend fun verifyGoogleIdToken(idToken: String): TokenPair {
         val pair = post(
             "/api/auth/mobile/google",
             MobileGoogleRequest(idToken),
@@ -99,14 +112,14 @@ class ApiClient(
         return pair
     }
 
-    suspend fun me(): User = get("/api/me", User::class.java)
+    override suspend fun me(): User = get("/api/me", User::class.java)
 
     /**
      * Best-effort logout: POSTs to the backend to revoke the session
      * server-side, then always clears local tokens regardless of the
      * server response.
      */
-    suspend fun logout() {
+    override suspend fun logout() {
         runCatching {
             post<Any, MessageResponse>("/api/auth/logout", EmptyBody, MessageResponse::class.java)
         }

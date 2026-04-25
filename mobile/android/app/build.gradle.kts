@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    jacoco
 }
 
 android {
@@ -46,6 +47,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Jacoco needs the test-coverage flag to capture .exec data.
+            enableUnitTestCoverage = true
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
@@ -97,10 +102,99 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.mockwebserver)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+// Jacoco unit-test coverage. Custom task instead of relying on AGP's
+// generated `createDebugUnitTestCoverageReport` because that one's API
+// is unstable across AGP versions. Reads the .exec file produced by
+// `enableUnitTestCoverage = true` and emits HTML + XML.
+//
+// Excludes generated/Compose noise so the metric reflects the code
+// humans wrote: BuildConfig, $$serializer, Compose lambdas, etc.
+//
+// Floor: 25% lines (phased ramp toward 80%). Below this, the suite
+// fails — wired into `make test:android:coverage`.
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("testDebugUnitTest")
+    group = "verification"
+    description = "Generates Jacoco coverage from JVM unit tests."
+
+    reports {
+        html.required.set(true)
+        xml.required.set(true)
+    }
+
+    val excludes = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/*\$Lambda$*.*",
+        "**/*\$inlined$*.*",
+        "**/databinding/**",
+        "**/generated/**",
+        "**/ComposableSingletons*.class",
+        "**/*Composable*.class",
+    )
+
+    classDirectories.setFrom(
+        fileTree("${layout.buildDirectory.get()}/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes") {
+            exclude(excludes)
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java", "src/main/kotlin"))
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        }
+    )
+}
+
+tasks.register<JacocoCoverageVerification>("jacocoCoverageVerification") {
+    dependsOn("jacocoTestReport")
+    group = "verification"
+    description = "Fails the build if line coverage is below the floor."
+
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.25".toBigDecimal()
+            }
+        }
+    }
+
+    val excludes = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/databinding/**",
+        "**/generated/**",
+        "**/ComposableSingletons*.class",
+        "**/*Composable*.class",
+    )
+
+    classDirectories.setFrom(
+        fileTree("${layout.buildDirectory.get()}/intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes") {
+            exclude(excludes)
+        }
+    )
+    sourceDirectories.setFrom(files("src/main/java", "src/main/kotlin"))
+    executionData.setFrom(
+        fileTree(layout.buildDirectory) {
+            include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        }
+    )
 }
