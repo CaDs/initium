@@ -37,9 +37,11 @@ describe("apiFetch", () => {
     const result = await apiFetch("/api/landing", {}, schema);
 
     expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.data.name).toBe("Initium");
-    }
+    // Discriminated union narrowing — guarded by the assert above. The
+    // /* v8 ignore next */ comment prevents the unreachable branch from
+    // skewing branch coverage.
+    if (!result.ok) throw new Error("unreachable: result.ok asserted true above");
+    expect(result.data.name).toBe("Initium");
   });
 
   it("attaches Authorization Bearer when access_token cookie is set", async () => {
@@ -75,10 +77,9 @@ describe("apiFetch", () => {
     const result = await apiFetch("/api/landing");
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("INVALID_CREDENTIALS");
-      expect(result.error.message).toBe("no session");
-    }
+    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    expect(result.error.code).toBe("INVALID_CREDENTIALS");
+    expect(result.error.message).toBe("no session");
   });
 
   it("falls back to status text when error body is not JSON", async () => {
@@ -92,10 +93,9 @@ describe("apiFetch", () => {
     const result = await apiFetch("/api/landing");
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("UNKNOWN");
-      expect(result.error.message).toBe("Bad Gateway");
-    }
+    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    expect(result.error.code).toBe("UNKNOWN");
+    expect(result.error.message).toBe("Bad Gateway");
   });
 
   it("returns VALIDATION_ERROR when the response shape does not match the schema", async () => {
@@ -111,9 +111,8 @@ describe("apiFetch", () => {
     const result = await apiFetch("/api/landing", {}, schema);
 
     expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.error.code).toBe("VALIDATION_ERROR");
-      expect(result.error.message).toMatch(/validation failed/i);
-    }
+    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    expect(result.error.code).toBe("VALIDATION_ERROR");
+    expect(result.error.message).toMatch(/validation failed/i);
   });
 });

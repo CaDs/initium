@@ -50,7 +50,7 @@ GRADLE_ENV := JAVA_HOME="$(ANDROID_STUDIO_JBR)" ANDROID_HOME="$(ANDROID_SDK)"
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
         db\:migrate db\:rollback db\:reset db\:seed db\:create db\:psql \
         gen gen\:openapi \
-        test test\:backend test\:backend\:coverage test\:web test\:ios test\:android test\:contract test\:all \
+        test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:ios test\:android test\:contract test\:all \
         lint lint\:backend lint\:web lint\:ios lint\:android \
         format format\:backend format\:web format\:ios format\:android \
         dev dev\:backend dev\:web dev\:ios dev\:android \
@@ -182,6 +182,9 @@ test\:backend\:coverage: ## Backend tests + coverage report (fails under 35% —
 
 test\:web: ## Web Vitest suite
 	cd $(WEB_DIR) && npm run test
+
+test\:web\:coverage: ## Web tests with coverage (fails under 25% lines/branches — phased ramp toward 80%)
+	cd $(WEB_DIR) && npm run test:coverage
 
 test\:ios: ## iOS Swift Testing on simulator (requires Xcode 26+)
 	cd $(IOS_DIR) && xcodebuild test \

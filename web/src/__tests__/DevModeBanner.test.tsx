@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 
 import DevModeBanner from "@/components/shared/DevModeBanner";
@@ -44,8 +44,8 @@ describe("DevModeBanner", () => {
 
   it("renders the banner when DEV_BYPASS_AUTH is 'true'", async () => {
     process.env.DEV_BYPASS_AUTH = "true";
-    const { getByText } = await renderBanner();
-    expect(getByText("Dev mode: auth bypassed")).toBeInTheDocument();
+    await renderBanner();
+    expect(screen.getByText("Dev mode: auth bypassed")).toBeInTheDocument();
   });
 });
 
