@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # preflight.sh — every gate a PR must pass, same order CI runs them.
 # Designed for agent self-check: run this before declaring a feature done.
+#
+# Native mobile (iOS / Android) tests and linters run separately via
+# `make test:ios`, `make test:android`, `make lint:ios`, `make lint:android`
+# because they require Xcode + a simulator (iOS) or a JDK + Gradle
+# (Android) that aren't guaranteed in every environment.
 
 set -euo pipefail
 
@@ -10,16 +15,13 @@ step() { printf "\n\033[1;36m▸ %s\033[0m\n" "$*"; }
 
 trap 'red "preflight FAILED"' ERR
 
-step "lint (backend + web + mobile, parallel)"
+step "lint (backend + web, parallel)"
 make lint
 
-step "test (backend + web + mobile, parallel)"
+step "test (backend + web, parallel)"
 make test
 
-step "check:openapi (dart DTO drift)"
-make check:openapi
-
-step "check:parity (every /api/ spec path has a consumer)"
+step "check:parity (every /api/ spec path has a web consumer; mobile is paused)"
 make check:parity
 
 step "check:skills (exemplar path + symbol drift)"

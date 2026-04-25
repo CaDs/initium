@@ -1,208 +1,139 @@
 ---
 name: initium-mobile
-description: Use when writing or modifying the Flutter mobile app in the Initium template — screens, Riverpod providers, Dio client, DTOs, mappers, go_router, i18n ARBs, or Flutter tests. Triggers on paths under `mobile/lib/**` or `mobile/test/**`. Encodes the layered data architecture, Riverpod `AuthState` sealed class, secure token storage, and the hand-written DTO + drift-check workflow for this specific fork-and-specialize starter template.
+description: Use when writing or modifying either native mobile app in the Initium template — the SwiftUI iOS app (`mobile/ios/initium/`) or the Jetpack Compose Android app (`mobile/android/`). Triggers on paths under `mobile/ios/**` or `mobile/android/**`. Encodes the two-app structure, the parity-with-web rule, and the per-platform conventions for this fork-and-specialize starter template.
 ---
 
 # initium-mobile
 
-You are editing the Flutter app of an Initium fork. This template ships auth
-(Google + magic link), session management (Keychain / EncryptedSharedPreferences),
-Dio + refresh-token serialization, i18n (en/es/ja), and a Material 3 theme with
-light/dark/system switching — all minimal, ready to be skinned.
+You are editing one of **two native mobile apps** in this Initium fork. The
+Flutter codebase was removed on branch `feat/dropping_flutter`; the mobile
+surface is now:
 
-> **This skill is the authoritative source for mobile conventions.** Per-directory
-> `CLAUDE.md` / `AGENTS.md` files have been deleted — everything mobile-specific
-> lives here. Mobile does NOT use freezed or json_serializable; DTOs are
-> hand-written. Make targets are namespaced: `make gen:mobile`,
-> `make test:mobile`, `make check:openapi`, `make lint:mobile`.
+- **iOS**: SwiftUI, targeting iOS 17.0+, built with Xcode 26+. Liquid Glass
+  is supported as an *opt-in* per-surface treatment that falls back
+  gracefully on iOS < 26 via `.regularMaterial`. See
+  `patterns/ios.md` for conventions and the `.liquidGlassCard()` modifier.
+- **Android**: Jetpack Compose + Material 3, Kotlin 2.x, minSdk 24 /
+  targetSdk 36. Uses `NavigationSuiteScaffold` for adaptive nav (bottom bar
+  on phones, nav rail on larger screens). See `patterns/android.md`.
+
+> **What ships today.** Both apps ship an auth-gated 3-tab shell:
+> login screen (magic link working; Google button stubbed) gives way
+> to Home / Main / Settings after sign-in. The Home tab renders the
+> authenticated user profile (email / name / role / id) mirroring
+> `web/src/app/home/page.tsx`. Each app has a secure token store,
+> a single-flight refresh interceptor, and deep-link handling for
+> `initium://auth/verify?token=...`.
+>
+> **Still deferred** (do NOT pre-scaffold): Google Sign-In SDKs,
+> OpenAPI codegen, theme switcher, locale switcher + i18n,
+> Sentry / Firebase Crashlytics. Each lands in its own follow-up PR.
 
 ## Gates that will fail your PR
 
 Run `make preflight` before committing. It fails if any of the following
 is true:
 
-- A `/api/*` spec path has no consumer in this codebase
-  (`make check:parity`).
-- A required schema field is missing from its hand-written mobile DTO
-  (`make check:openapi`) — checker accepts both `fromJson` (response) and
-  `toJson` (request) patterns.
-- An exemplar path cited in this skill no longer contains its
-  `<!-- expect: symbol -->` annotation (`make check:skills`).
-- `dart analyze` or `flutter test` fails.
-- `git status --porcelain` is non-empty after the run (`make check:staged`).
+- Every `/api/*` spec path that should have a web consumer doesn't
+  (`make check:parity`). Mobile-side parity is **paused** while the
+  native apps catch up — `/api/auth/mobile/*` is in the checker's
+  exclusion list.
+- An exemplar path cited in this skill no longer resolves, or an
+  `<!-- expect: symbol -->` annotation has gone stale
+  (`make check:skills`).
+- `git status --porcelain` is non-empty after the run
+  (`make check:staged`).
 
-## Architecture (layered, strict)
+Native mobile tests and linters are **not** part of `make preflight`
+(Xcode and a simulator aren't guaranteed in every environment). Run them
+explicitly: `make test:ios`, `make test:android`, `make lint:ios`,
+`make lint:android`.
+
+## The two-app structure
 
 ```
-lib/domain/
-  entity/         Pure Dart entities (User, Session). No Flutter, no package imports.
-  repository/     Interfaces (UserRepository, AuthRepository).
-  error/          Domain-level errors.
-lib/data/
-  remote/
-    api_client.dart     Dio client wired with refresh interceptor.
-    dto/                Hand-written DTOs (UserDto, AuthResponseDto, MessageResponseDto).
-    mapper/             Per-aggregate DTO ↔ domain mappers (user_mapper.dart, etc).
-  local/
-    session_manager.dart   Plain Dart class — NOT a Riverpod Notifier.
-    token_storage.dart     flutter_secure_storage wrapper with first-launch wipe.
-  repository/     Repo implementations that compose remote + local.
-lib/providers/
-  api_provider.dart       tokenStorageProvider, apiClientProvider, authProvider (StateNotifier).
-  auth_provider.dart      AuthState sealed class (Loading/Authenticated/Unauthenticated/Error).
-  theme_provider.dart     ThemeMode with SharedPreferences persistence.
-  locale_provider.dart    Locale with SharedPreferences persistence.
-  <feature>_provider.dart Feature-specific StateNotifierProvider + repository Provider. Flat.
-lib/presentation/
-  router/         go_router config with Riverpod-driven redirects.
-  login/          Login screen + Google button + magic link form.
-  home/           Protected home screen.
-  auth/           Magic link verify screen.
-  shared/         DevModeBanner, ThemeSwitcher, LocaleSwitcher.
-lib/l10n/         ARB files (app_en.arb, app_es.arb, app_ja.arb). Generated app_localizations*.dart.
+mobile/
+├── AGENTS.md          — cross-platform rules (what applies to both apps)
+├── CLAUDE.md          — symlink → AGENTS.md
+├── README.md          — one-page index
+├── ios/
+│   └── initium/       — Xcode project root (`initium.xcodeproj` lives here)
+│       ├── initium/           — app sources
+│       ├── initiumTests/      — Swift Testing unit tests
+│       ├── initiumUITests/    — XCUITest UI tests
+│       ├── AGENTS.md
+│       └── CLAUDE.md → AGENTS.md
+└── android/
+    ├── app/src/main/java/com/example/initium/   — Kotlin sources
+    ├── gradle/libs.versions.toml                — version catalog
+    ├── AGENTS.md
+    └── CLAUDE.md → AGENTS.md
 ```
 
-## Rules
+Shared product identity (bundle ID, app name, icons, marketing strings)
+is NOT yet extracted to a single source of truth. Each app carries its
+own copy. When the template matures, a `mobile/shared/` with a single
+`brand.yaml` can be added and code-generated out.
 
-- `domain/` has **zero imports** from `data/`, `providers/`, `presentation/`, or any package.
-- `AuthState` sealed class is a **UI concern**, not a domain entity. It lives in
-  `providers/`, not `domain/`.
-- `SessionManager` is plain Dart. Riverpod wraps it in `providers/api_provider.dart`.
-- DTOs are hand-written JSON maps. They live only in `data/remote/dto/`. Their
-  shape is verified by `make check:openapi` (the drift check in
-  `backend/cmd/check-dto-drift` compares each mapped DTO against the OpenAPI spec).
-- Mappers split per aggregate (`auth_mapper.dart`, `user_mapper.dart`). No
-  single `dto_mapper.dart` kitchen sink.
-- Use `Theme.of(context).colorScheme` and `theme.textTheme`. Never hardcode
-  `Colors.grey[600]` or `TextStyle(fontSize: ...)`.
-- No custom design system wrappers (no AppBtn, AppHeader, AppScaffold). Use
-  raw `ElevatedButton`, `AppBar`, `Scaffold`. Forks add wrappers if they want them.
-- No flutter_animate, no motion libraries, no parallax. Forks add them where
-  specific screens need polish.
-- **Feature providers (non-auth) live in `providers/<feature>_provider.dart`** —
-  flat, never nested under `presentation/`. `presentation/` holds only widgets.
-- **Repositories return `Future<(T?, DomainError?)>` positional records.** Never
-  throw from repos; map `DioException` via a private `_mapError`. See
-  `patterns/dio-client.md` and `user_repository_impl.dart` for the canonical shape.
-- **Before registering a new DTO in `dto_manifest.yaml`**, verify the OpenAPI
-  schema exists in `backend/api/openapi.yaml`. Registering a manifest entry for
-  a nonexistent schema makes `make check:openapi` fail immediately.
-- **When committing a new feature**: `git add -A` so untracked new files
-  (entity, DTO, mapper, repo, provider, screen) all land. A `git diff` that
-  misses untracked files is the most common "forgot half the feature" mode.
+## Cross-cutting rules
 
-## The contract-first workflow
+- **Parity**: see [../_shared/parity.md](../_shared/parity.md). The rule
+  now reads "every user-facing feature on web, iOS, AND Android". If
+  you ship a feature on one but not the other two, the PR description
+  must explain why.
+- **No OpenAPI codegen for mobile yet.** When API calls land, iOS will
+  use `swift-openapi-generator`, Android will use the Kotlin target of
+  `openapi-generator`. Do not hand-write DTOs — wait for the codegen
+  wiring instead.
+- **Bundle / package identifiers (current scaffolding state)**:
+  - iOS: `cads.initium` (Xcode template default — rename per-fork)
+  - Android: `com.example.initium` (Android Studio template default —
+    rename per-fork)
+  Forks should rename both to match the product. A mismatch between
+  the two is fine during development; converging them is a `feat` PR
+  when the product is named.
+- **Commit hygiene**: when adding a new feature, include BOTH
+  `mobile/ios/**` and `mobile/android/**` changes in the same commit
+  (or two coordinated commits landing together). Half-feature PRs
+  break parity and are harder to review.
 
-When a new API response (or new required field) needs a mobile DTO:
+## The contract-first workflow (current — hand-written DTOs)
 
-1. Someone edits `backend/api/openapi.yaml` (backend side).
-2. Run `make gen:openapi` (regenerates Go + TypeScript types; leaves mobile alone).
-3. If the schema is already in `mobile/tool/dto_manifest.yaml`, update the
-   corresponding Dart DTO's `fromJson()` to reference the new field.
-4. If the schema is new:
-   - (a) **Confirm the schema exists in `backend/api/openapi.yaml` first.**
-     Registering a manifest entry for a nonexistent schema breaks
-     `make check:openapi` immediately.
-   - (b) Hand-write the Dart DTO in `lib/data/remote/dto/`.
-   - (c) Add a mapper in `lib/data/remote/mapper/`. Parse date-time strings
-     into `DateTime` here; domain entities never carry wire types.
-   - (d) Register **every** wire schema in `mobile/tool/dto_manifest.yaml` —
-     response envelopes (`XxxList`), request bodies (`CreateXxxRequest`), AND
-     the item schemas — each needs its own DTO class + manifest entry.
-5. Run `make check:openapi` — it verifies every required schema field has a
-   matching `json['snake_case_name']` reference in the target Dart class.
-6. **List endpoints use envelope schemas** (`{"resource_name": [...]}`). Unwrap
-   via `response.data['resource_name']` in the repo; do not treat
-   `response.data` as a bare `List`. See `patterns/dio-client.md`.
+When a new API response needs a mobile client:
 
-Full workflow: `docs/OPENAPI.md`. Why no full Dart codegen: `docs/OPENAPI.md#why-no-dart-codegen`.
+1. Edit `backend/api/openapi.yaml` (backend side).
+2. Run `make gen:openapi` → regenerates Go + TypeScript types.
+3. Update the hand-written DTOs:
+   - iOS: `mobile/ios/initium/initium/API/Models.swift` — add / edit
+     the `Codable` struct with explicit `CodingKeys` for snake_case
+     field names.
+   - Android: `mobile/android/app/src/main/java/com/example/initium/api/Models.kt` —
+     add / edit the Moshi data class with `@Json(name = "...")` for
+     snake_case field names.
+4. Add a method on `APIClient` (iOS) / `ApiClient` (Android) that
+   consumes or produces the new type.
+5. `make check:parity` verifies the spec path is referenced on at
+   least one surface.
 
-**Cross-stack completeness**: if your feature requires a new endpoint,
-the backend handler + service + migration must exist before mobile
-repositories call it. Editing only `backend/api/openapi.yaml` satisfies
-the drift check but the runtime call will 404. Either pair with the
-backend change (see `initium-backend/patterns/feature-crud.md`) or
-explicitly defer.
+**OpenAPI codegen is deferred** to a follow-up PR (SPM plugin on iOS,
+Gradle plugin on Android). Until it lands, every spec change must be
+mirrored manually in both `Models.*` files.
 
-## Auth flow
+## Platform-specific conventions
 
-- Google Sign-In: `google_sign_in` → ID token → `POST /api/auth/mobile/google` →
-  backend returns `TokenPair`; tokens stored via `TokenStorage` (Keychain on iOS,
-  EncryptedSharedPreferences on Android).
-- Magic link: user enters email → `POST /api/auth/magic-link` → email deep link
-  (initium://auth/verify?token=...) → `VerifyScreen` calls
-  `POST /api/auth/mobile/verify` → tokens stored → `go('/home')`.
-- Refresh: Dio interceptor uses a `Completer<void>` lock to serialize concurrent
-  refresh attempts. Without the lock, simultaneous 401s cause spurious logouts.
-- `DEV_BYPASS_AUTH`: injected via `--dart-define=DEV_BYPASS_AUTH=true`; emits
-  authenticated state with a stub user. `main.dart` asserts it cannot be true
-  in release builds.
+See the two per-platform pattern docs, both of which include exemplar
+file references checked by `make check:skills`:
 
-## Security (non-obvious)
+- [patterns/ios.md](patterns/ios.md) — SwiftUI, Liquid Glass, `TabView`,
+  `@Observable`, Swift Testing.
+- [patterns/android.md](patterns/android.md) — Jetpack Compose,
+  Material 3, `NavigationSuiteScaffold`, `StateFlow`, Compose UI tests.
 
-- **iOS keychain persistence**: Keychain items survive app uninstall. `TokenStorage`
-  does a first-launch check via `shared_preferences` and wipes stale keychain
-  data on reinstall.
-- **Android backup**: `AndroidManifest.xml` sets `android:allowBackup="false"`
-  to prevent `EncryptedSharedPreferences` leaking via Google backup.
-- **Release guard**: `main.dart` asserts `!(kReleaseMode && devBypassAuth)`.
+## Canonical exemplars
 
-## i18n
+Cross-platform (paths apply to both apps equally):
 
-- ARB files in `lib/l10n/app_{en,es,ja}.arb`. Add new keys to **all three**
-  before referencing them.
-- `flutter gen-l10n` (or `make gen:mobile`) regenerates `app_localizations*.dart`
-  after ARB edits.
-- `mobile/l10n.yaml` claims ownership of generator flags — do NOT pass
-  `--template-arb-file` or similar on the CLI when `l10n.yaml` exists;
-  `flutter gen-l10n` rejects them. Edit `l10n.yaml` instead.
-- Parameterized messages use `{name}` syntax with matching `@key` metadata.
-- Access: `AppLocalizations.of(context)!`.
+- Parity rule: `.claude/skills/_shared/parity.md`
+- Mobile-wide agent doc: `mobile/AGENTS.md`
 
-## Platform setup (required before first build)
-
-`mobile/SETUP.md` covers the per-OS credentials the app needs to compile:
-
-- `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) from
-  the Firebase/GCP console.
-- `Info.plist` URL scheme for the Google Sign-In callback.
-- SHA-1 fingerprint registration.
-
-The app will NOT compile without these. If `flutter run` errors on missing
-`GoogleService-Info.plist`, that's the setup step, not a code bug.
-
-## Testing
-
-- `flutter test` (or `make test:mobile`) runs widget + unit tests.
-- Widget smoke test at `test/widget_test.dart`.
-- Additional tests go under `test/data/`, `test/domain/`, `test/presentation/`
-  (scaffolded empty).
-
-## Canonical exemplars (open these when unsure)
-
-- Entity: `mobile/lib/domain/entity/user.dart` <!-- expect: class User --> — pure Dart, no imports.
-- DTO: `mobile/lib/data/remote/dto/user_dto.dart` <!-- expect: UserDto --> — hand-written `fromJson`.
-- Mapper: `mobile/lib/data/remote/mapper/user_mapper.dart` <!-- expect: UserDtoMapper --> — extension on DTO.
-- **Repository: `mobile/lib/data/repository/user_repository_impl.dart`** <!-- expect: _mapError --> —
-  returns `Future<(T?, DomainError?)>` positional records; maps
-  `DioException` via private `_mapError`. First file to copy for any new CRUD feature.
-- Provider: `mobile/lib/providers/api_provider.dart` <!-- expect: authProvider --> — `tokenStorageProvider`,
-  `apiClientProvider`, `authProvider` (StateNotifierProvider) wiring.
-- Auth state: `mobile/lib/providers/auth_provider.dart` <!-- expect: AuthAuthenticated --> — sealed `AuthState`
-  class + `AuthNotifier`. Screens reading `authProvider` must import BOTH files:
-  `api_provider.dart` for the provider and `auth_provider.dart` for the
-  `AuthState` variants used in pattern matching.
-- Screen: `mobile/lib/presentation/login/login_screen.dart` <!-- expect: LoginScreen --> — raw Material,
-  Riverpod `ref.watch`, localized strings.
-- Home-to-sub-screen navigation: `mobile/lib/presentation/home/home_screen.dart` <!-- expect: HomeScreen -->
-  uses `context.push('/path')` for detail routes (preserves back-stack).
-- Router: `mobile/lib/presentation/router/app_router.dart` <!-- expect: routerProvider --> — go_router with
-  Riverpod-driven redirects.
-- DTO manifest: `mobile/tool/dto_manifest.yaml` <!-- expect: mappings --> — registering new DTOs for drift check.
-
-See also: `patterns/riverpod-auth.md`, `patterns/dio-client.md`, `patterns/screen.md`, `patterns/feature-crud.md`.
-
-## Parity
-
-See [parity.md](../_shared/parity.md). If you add a screen here, the mirror
-screen belongs on web. Call it out in the PR.
+Platform-specific exemplars live in the platform pattern docs.

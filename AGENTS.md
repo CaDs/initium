@@ -26,13 +26,16 @@ got reverted, but left the volume dirty). Recover with
 ```
 .claude/skills/initium-backend/   — Go + chi + GORM + PostgreSQL
 .claude/skills/initium-web/       — Next.js App Router + Server Actions + Zod
-.claude/skills/initium-mobile/    — Flutter + Riverpod + Dio + hand-written DTOs
-.claude/skills/_shared/parity.md  — the "every feature on web AND mobile" rule
+.claude/skills/initium-mobile/    — Native iOS (SwiftUI + Liquid Glass) + Android (Jetpack Compose)
+.claude/skills/_shared/parity.md  — the "every feature on web, iOS, AND Android" rule
 ```
 
 If you're editing `backend/**`, `web/**`, or `mobile/**`, load the matching
 SKILL.md + its `patterns/*.md` before making changes. Everything
 stack-specific lives there. Do not infer conventions from training data.
+
+For mobile, also load the per-folder `AGENTS.md` (there are three:
+`mobile/AGENTS.md`, `mobile/ios/AGENTS.md`, `mobile/android/AGENTS.md`).
 
 ## Agent-first principles
 
@@ -54,19 +57,25 @@ CI. Run the full gate before committing:
 make preflight
 ```
 
-Which runs, in order: `lint` → `test` → `check:openapi` → `check:parity`
-→ `check:skills` → `check:staged`. A green preflight means:
+Which runs, in order: `lint` → `test` → `check:parity` → `check:skills`
+→ `check:staged`. A green preflight means:
 - Every chi route has a corresponding OpenAPI path and vice versa
   (`backend/internal/app/contract_test.go`).
-- Every required schema field is referenced in its mobile DTO
-  (`backend/cmd/check-dto-drift`).
-- Every JSON-returning spec path has a web Zod schema + mobile DTO mapping
-  (`backend/cmd/check-parity`).
+- Every `/api/*` spec path has a consumer in at least one of
+  `web/src/**`, `mobile/ios/**`, or `mobile/android/**`
+  (`backend/cmd/check-parity`). Any-surface coverage passes the gate;
+  all-surface parity is enforced by review (see
+  `.claude/skills/_shared/parity.md`).
 - Every exemplar path cited in a SKILL.md still exists and still contains
   the claimed symbol (`scripts/check-skills.sh`).
 - Every domain error is mapped to an HTTP envelope
   (`error_envelope_test.go`).
 - No untracked files — `git status --porcelain` is empty.
+
+Native mobile tests/linters (`make test:ios`, `make test:android`,
+`make lint:ios`, `make lint:android`) are NOT part of `make preflight`
+because they require Xcode / Android Studio. Run them explicitly when
+you've touched `mobile/`.
 
 If you add a rule to a skill, consider whether a gate can enforce it. If
 yes, add the gate. Prose-only rules drift.
@@ -86,17 +95,20 @@ caught in review.
 ## API contract workflow (one sentence)
 
 Edit `backend/api/openapi.yaml` first → run `make gen:openapi` → implement
-handler using generated types → update web Zod schema + mobile DTO (if
-needed) → `make preflight`. The skills cover the per-stack mechanics.
+handler using generated types → update web Zod schema → `make preflight`.
+Native mobile codegen is deferred (see `docs/OPENAPI.md`); wire it up
+with the first mobile feature that needs a backend call. The skills
+cover the per-stack mechanics.
 
 ## Auth model
 
 - Backend owns session state. Short-lived access tokens (15min) + refresh
   tokens (7d) in the `sessions` table.
-- Google OAuth — web: server-side redirect flow; mobile: ID token POSTed
-  to `/api/auth/mobile/google`.
-- Magic links — web: `/verify` redirects with cookies; mobile:
-  `/api/auth/mobile/verify` returns JSON.
+- Google OAuth — web: server-side redirect flow. Mobile: ID token POSTed
+  to `/api/auth/mobile/google` (endpoint exists; no native consumer yet).
+- Magic links — web: `/verify` redirects with cookies. Mobile:
+  `/api/auth/mobile/verify` returns JSON (endpoint exists; no native
+  consumer yet).
 - `DEV_BYPASS_AUTH=true` (dev only) injects `dev@initium.local`. Release
   builds hard-fail if the flag is on.
 
@@ -105,9 +117,12 @@ needed) → `make preflight`. The skills cover the per-stack mechanics.
 Shipped: `/healthz`, `/readyz`, `/metrics` (Prometheus default collectors),
 slog JSON access log with request IDs.
 
-Opt-in stubs (env vars only, no init code): `SENTRY_DSN` (backend +
-mobile), `NEXT_PUBLIC_SENTRY_DSN` (web), `OTEL_EXPORTER_OTLP_ENDPOINT`.
-Pick one, wire it in the relevant stack's `main.go` / root layout.
+Opt-in stubs (env vars only, no init code): `SENTRY_DSN` (backend),
+`NEXT_PUBLIC_SENTRY_DSN` (web), `OTEL_EXPORTER_OTLP_ENDPOINT`. Mobile
+observability (Sentry Apple SDK / Sentry Android SDK, Firebase
+Crashlytics) is deferred until the native apps have real user-facing
+behavior worth instrumenting. Pick one, wire it in the relevant stack's
+`main.go` / root layout / `AppDelegate` / `Application` subclass.
 
 ## Conventions (cross-cutting)
 
@@ -115,9 +130,12 @@ Pick one, wire it in the relevant stack's `main.go` / root layout.
   `docs:`, `chore:`. Body explains _why_.
 - **No secrets in version control**. Use `.env.example` templates.
 - **Parameterized queries only**. Never string-interpolate SQL.
-- **i18n**: every user-facing string localized in en/es/ja. Per-stack
-  mechanics live in the skill.
-- **Theme**: three modes — light/dark/system.
+- **i18n**: web localizes in en/es/ja. Native apps currently render
+  hardcoded English only — localization is deferred until the MVP
+  shell becomes a real app. Per-stack mechanics live in the skill.
+- **Theme**: web supports light/dark/system. Android adopts the system
+  appearance + dynamic color on Android 12+. iOS adopts system
+  appearance. Explicit in-app theme switchers are deferred.
 - **Accessibility**: required baseline per stack.
 - **Autonomy**: run linters + tests after changes automatically. Never
   push, merge, or open PRs without explicit approval.

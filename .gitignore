@@ -12,16 +12,22 @@ web/.next/
 web/out/
 web/node_modules/
 
-# Flutter
-mobile/.dart_tool/
-mobile/.packages
-mobile/build/
-mobile/.flutter-plugins
-mobile/.flutter-plugins-dependencies
-mobile/ios/Pods/
-mobile/ios/.symlinks/
+# iOS (SwiftUI)
+mobile/ios/**/build/
+mobile/ios/**/DerivedData/
+mobile/ios/**/.swiftpm/
+mobile/ios/**/xcuserdata/
+mobile/ios/**/*.xcuserstate
+
+# Android (Jetpack Compose)
 mobile/android/.gradle/
+mobile/android/.kotlin/
+mobile/android/build/
+mobile/android/app/build/
 mobile/android/local.properties
+mobile/android/.idea/
+mobile/android/**/*.iml
+mobile/android/captures/
 
 # Dependencies
 node_modules/
