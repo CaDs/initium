@@ -35,6 +35,16 @@ OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || wh
 # iOS simulator used by test:ios / dev:ios. Override with `make dev:ios IOS_SIM='iPhone 17'`.
 IOS_SIM ?= iPhone 17 Pro
 
+# Android toolchain — auto-detect Android Studio's bundled JDK and the SDK
+# in the standard macOS location. `which java` from a normal shell often
+# resolves to a stub on macOS, so we set JAVA_HOME explicitly for every
+# Gradle invocation. ANDROID_HOME is required by AGP. ADB is invoked by
+# absolute path because it's rarely on $PATH outside Android Studio.
+ANDROID_SDK ?= $(HOME)/Library/Android/sdk
+ANDROID_STUDIO_JBR ?= /Applications/Android Studio.app/Contents/jbr/Contents/Home
+ADB := $(ANDROID_SDK)/platform-tools/adb
+GRADLE_ENV := JAVA_HOME="$(ANDROID_STUDIO_JBR)" ANDROID_HOME="$(ANDROID_SDK)"
+
 .PHONY: help \
         setup keygen clobber \
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
@@ -172,11 +182,11 @@ test\:ios: ## iOS Swift Testing on simulator (requires Xcode 26+)
 		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
 		-quiet
 
-test\:android: ## Android unit tests (./gradlew test)
-	cd $(ANDROID_DIR) && ./gradlew test
+test\:android: _ensure-android ## Android unit tests (./gradlew test)
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew test
 
-test\:android\:instrumented: ## Android Compose UI tests (requires running emulator or device)
-	cd $(ANDROID_DIR) && ./gradlew connectedAndroidTest
+test\:android\:instrumented: _ensure-android ## Android Compose UI tests (requires running emulator or device)
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew connectedAndroidTest
 
 test\:contract: ## Schemathesis contract tests (requires running backend; heavy — CI-only)
 	bash scripts/schemathesis.sh
@@ -199,8 +209,8 @@ lint\:web: ## ESLint + TypeScript web
 lint\:ios: ## iOS static analysis (xcodebuild with -quiet; SwiftLint/SwiftFormat not yet wired)
 	cd $(IOS_DIR) && xcodebuild -project initium.xcodeproj -scheme initium -destination 'platform=iOS Simulator,name=$(IOS_SIM)' -quiet analyze
 
-lint\:android: ## Android Lint + (future) ktlint/detekt
-	cd $(ANDROID_DIR) && ./gradlew lint
+lint\:android: _ensure-android ## Android Lint + (future) ktlint/detekt
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew lint
 
 format: ## Format all code (backend + web)
 	@$(MAKE) -j2 format\:backend format\:web
@@ -256,9 +266,35 @@ dev\:ios: _ensure-simulator ## iOS — boots simulator if needed, builds + runs 
 	echo "Launching $$BUNDLE_ID"; \
 	xcrun simctl launch "$$UDID" "$$BUNDLE_ID"
 
-dev\:android: ## Android — installs + launches the debug APK on a running emulator/device
-	cd $(ANDROID_DIR) && ./gradlew installDebug
-	@adb shell am start -n com.example.initium/.MainActivity
+dev\:android: _ensure-android ## Android — installs + launches the debug APK on a running emulator/device
+	@if ! $(ADB) get-state >/dev/null 2>&1; then \
+		echo "No Android device or emulator detected." >&2; \
+		echo "Start one in Android Studio (Tools → Device Manager) and re-run." >&2; \
+		exit 1; \
+	fi
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew installDebug
+	@APP_ID=$$(grep -E '^[[:space:]]*applicationId' $(ANDROID_DIR)/app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)".*/\1/'); \
+	echo "Launching $$APP_ID/.MainActivity"; \
+	$(ADB) shell am start -n "$$APP_ID/.MainActivity"
+
+_ensure-android:
+	@if [ ! -d "$(ANDROID_STUDIO_JBR)" ]; then \
+		echo "Android Studio's bundled JDK not found at $(ANDROID_STUDIO_JBR)." >&2; \
+		echo "Install Android Studio from https://developer.android.com/studio" >&2; \
+		echo "Or override with: make dev:android ANDROID_STUDIO_JBR=/path/to/jdk" >&2; \
+		exit 1; \
+	fi
+	@if [ ! -d "$(ANDROID_SDK)" ]; then \
+		echo "Android SDK not found at $(ANDROID_SDK)." >&2; \
+		echo "Open Android Studio at least once to install the SDK," >&2; \
+		echo "or override with: make dev:android ANDROID_SDK=/path/to/sdk" >&2; \
+		exit 1; \
+	fi
+	@if [ ! -x "$(ADB)" ]; then \
+		echo "adb not found at $(ADB)." >&2; \
+		echo "Install Android SDK platform-tools via Android Studio's SDK Manager." >&2; \
+		exit 1; \
+	fi
 
 _ensure-simulator:
 	@if ! xcrun simctl list devices booted 2>/dev/null | grep -q "Booted"; then \
@@ -295,8 +331,8 @@ build\:ios: ## iOS archive-style build against a simulator destination
 		-configuration Debug \
 		build
 
-build\:android: ## Android debug APK
-	cd $(ANDROID_DIR) && ./gradlew assembleDebug
+build\:android: _ensure-android ## Android debug APK
+	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew assembleDebug
 
 # ============================================================================
 ## group: ops
