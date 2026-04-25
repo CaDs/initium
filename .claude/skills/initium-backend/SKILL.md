@@ -22,6 +22,8 @@ committing. It fails if any of the following is true:
   `scripts/preflight.sh` runs gen and diffs the tracked files.
 - A `/api/*` spec path has no consumer in web or mobile code
   (`make check:parity`).
+- Backend coverage drops below 35% (`make test:backend:coverage`).
+  Phased ramp toward 80% in follow-up PRs as coverage grows.
 - An exemplar path cited in this skill no longer contains its
   `<!-- expect: symbol -->` annotation (`make check:skills`).
 - `git status --porcelain` is non-empty after the run
@@ -201,13 +203,28 @@ byte streaming via `huma.StreamResponse` works too. See
 
 - Table-driven tests in `*_test.go`, `testify/assert` + `require`.
 - `t.Parallel()` where safe.
-- 80% coverage floor. Every bug fix gets a regression test.
+- Phased coverage gate at 35% lines (current: 44.7%); ramping to
+  80% as coverage grows in follow-up PRs. Run with
+  `make test:backend:coverage`. Every bug fix gets a regression test.
 - Name pattern: `TestServiceName_Method_Scenario_Expected`.
+- **Mocks live in `internal/testutil/`** as canonical, function-injection
+  fakes (one `Fn` field per interface method). Compile-time
+  conformance assertions at the bottom of `mocks.go` mean adding a
+  method to a domain interface fails the build there first. Don't
+  hand-roll a mock locally in a `*_test.go` file — extend the
+  testutil one. See `mocks.go` <!-- expect: MockAuthService --> +
+  `fixtures.go` <!-- expect: RegularUser --> +
+  `decode.go` <!-- expect: MustDecodeJSON -->.
 - Huma handler tests use `humatest.New(t)` to build a typed test
   API; register the handler via its `RegisterX` method, then call
   `api.Get(...)`, `api.Post(...)`, etc. Returns an `*httptest.ResponseRecorder`
   via `resp.Code` / `resp.Body`. See
   `adapter/handler/mobile_auth_test.go` for the pattern.
+- chi-bridged middleware (httprate, etc.) tests CANNOT use humatest
+  because it's built on humaflow, not humachi — and `HumaFromHTTP`
+  calls `humachi.Unwrap`. Use a real chi router + `humachi.New(r, cfg)`
+  with `httptest.NewRecorder()` instead. See
+  `adapter/handler/middleware_bridge_test.go` <!-- expect: humachi.New --> for the harness.
 
 ## Canonical exemplars (open these when unsure)
 

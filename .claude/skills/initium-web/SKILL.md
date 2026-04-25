@@ -136,6 +136,21 @@ handler side. Pair with the backend change, or explicitly defer.
 ## Testing
 
 - Vitest + `@testing-library/react`. Tests in `src/__tests__/`.
+- Phased coverage gate: 25% lines/branches (current 78.84%/71.01%);
+  ramps to 80% in follow-up PRs. Run with `npm run test:coverage`
+  or `make test:web:coverage`.
+- **MSW v2 intercepts every backend call.** Default handlers in
+  `src/__tests__/msw/handlers.ts` cover the 9 backend endpoints; per-test
+  overrides go through `server.use(http.post(...))`. Setup hooks in
+  `src/__tests__/setup.ts` (`server.listen`, `resetHandlers`, `server.close`)
+  fail tests that hit unmatched URLs — preventing accidental real-API calls.
+- Middleware tests construct `NextRequest` directly + call the exported
+  `middleware()` function. The DEV_BYPASS const snapshots env at module
+  load, so tests that flip it must `vi.resetModules()` then re-import.
+  See `__tests__/middleware.test.ts` <!-- expect: middleware -->.
+- ESLint test-only rules (vitest + testing-library plugins) are scoped
+  to `src/__tests__/**` in `eslint.config.mjs`. Production code stays
+  out of test-rule territory.
 - Mock `next-intl`'s `useTranslations`, Server Actions, and `sonner` (see
   `MagicLinkForm.test.tsx` for the pattern).
 - `useActionState` needs a small shim — mock it to return the idle/initial state.
@@ -149,6 +164,9 @@ handler side. Pair with the backend change, or explicitly defer.
 - Protected Server Component: `web/src/app/home/page.tsx` <!-- expect: getTranslations -->
 - Form component: `web/src/components/auth/MagicLinkForm.tsx` <!-- expect: useActionState --> — useActionState + toast + a11y.
 - Unit test: `web/src/__tests__/MagicLinkForm.test.tsx` <!-- expect: MagicLinkForm -->
+- Middleware test (cookie + refresh paths): `web/src/__tests__/middleware.test.ts` <!-- expect: middleware -->
+- MSW handlers: `web/src/__tests__/msw/handlers.ts` <!-- expect: defaultHandlers -->
+- apiFetch test (Bearer + Zod + non-JSON fallback): `web/src/__tests__/lib/api.test.ts` <!-- expect: apiFetch -->
 
 See also: `patterns/server-action.md`, `patterns/api-fetch.md`, `patterns/component.md`.
 
