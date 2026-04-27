@@ -29,7 +29,7 @@ func setupTestGenerator(t *testing.T) *JWTGenerator {
 	privFile := dir + "/priv.pem"
 	pubFile := dir + "/pub.pem"
 	require.NoError(t, os.WriteFile(privFile, privPEM, 0600))
-	require.NoError(t, os.WriteFile(pubFile, pubPEM, 0644))
+	require.NoError(t, os.WriteFile(pubFile, pubPEM, 0600))
 
 	gen, err := NewJWTGenerator(privFile, pubFile)
 	require.NoError(t, err, "creating JWT generator")
@@ -40,21 +40,22 @@ func TestJWTGenerator_GenerateAndValidateAccessToken(t *testing.T) {
 	t.Parallel()
 	gen := setupTestGenerator(t)
 
-	token, err := gen.GenerateAccessToken("user-123", "test@example.com")
+	token, err := gen.GenerateAccessToken("user-123", "test@example.com", "admin")
 	require.NoError(t, err)
 	assert.NotEmpty(t, token, "token must not be empty")
 
-	userID, email, err := gen.ValidateAccessToken(token)
+	userID, email, role, err := gen.ValidateAccessToken(token)
 	require.NoError(t, err)
 	assert.Equal(t, "user-123", userID)
 	assert.Equal(t, "test@example.com", email)
+	assert.Equal(t, "admin", role)
 }
 
 func TestJWTGenerator_ValidateAccessToken_InvalidToken_ReturnsError(t *testing.T) {
 	t.Parallel()
 	gen := setupTestGenerator(t)
 
-	_, _, err := gen.ValidateAccessToken("not-a-jwt")
+	_, _, _, err := gen.ValidateAccessToken("not-a-jwt")
 	assert.Error(t, err, "expected error for invalid token")
 }
 
@@ -63,10 +64,10 @@ func TestJWTGenerator_ValidateAccessToken_WrongKey_ReturnsError(t *testing.T) {
 	gen1 := setupTestGenerator(t)
 	gen2 := setupTestGenerator(t)
 
-	token, err := gen1.GenerateAccessToken("user-123", "test@example.com")
+	token, err := gen1.GenerateAccessToken("user-123", "test@example.com", "user")
 	require.NoError(t, err)
 
-	_, _, err = gen2.ValidateAccessToken(token)
+	_, _, _, err = gen2.ValidateAccessToken(token)
 	assert.Error(t, err, "validating with wrong key must fail")
 }
 

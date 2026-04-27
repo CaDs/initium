@@ -160,7 +160,7 @@ func concatSources(root string, suffixes ...string) (string, error) {
 		if !ok {
 			return nil
 		}
-		b, err := os.ReadFile(p)
+		b, err := os.ReadFile(p) //nolint:gosec // WalkDir only scans trusted repo source trees.
 		if err != nil {
 			return err
 		}

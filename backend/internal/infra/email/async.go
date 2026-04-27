@@ -2,6 +2,7 @@ package email
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/eridia/initium/backend/internal/domain"
@@ -31,6 +32,7 @@ func (a *AsyncSender) SendMagicLink(ctx context.Context, to string, token string
 	})
 	if !submitted {
 		slog.Warn("magic link email dropped: worker queue full", "to", to)
+		return fmt.Errorf("queueing magic link email: worker queue full")
 	}
 	return nil
 }

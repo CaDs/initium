@@ -54,6 +54,7 @@ type mockSessionRepo struct {
 	sessions   map[string]*domain.Session
 	magicLinks map[string]*domain.MagicLinkToken
 	revoked    []string // tracks revoked session IDs
+	claimFn    func(ctx context.Context, hash string) (*domain.Session, error)
 }
 
 func newMockSessionRepo() *mockSessionRepo {
@@ -76,6 +77,26 @@ func (m *mockSessionRepo) FindSessionByRefreshTokenHash(_ context.Context, hash 
 	if !ok {
 		return nil, domain.ErrSessionNotFound
 	}
+	return s, nil
+}
+
+func (m *mockSessionRepo) ClaimSessionByRefreshTokenHash(ctx context.Context, hash string) (*domain.Session, error) {
+	if m.claimFn != nil {
+		return m.claimFn(ctx, hash)
+	}
+	s, ok := m.sessions[hash]
+	if !ok {
+		return nil, domain.ErrSessionNotFound
+	}
+	if !s.IsValid() {
+		if s.RevokedAt != nil {
+			return nil, domain.ErrSessionRevoked
+		}
+		return nil, domain.ErrSessionExpired
+	}
+	now := time.Now()
+	s.RevokedAt = &now
+	m.revoked = append(m.revoked, s.ID)
 	return s, nil
 }
 
@@ -161,7 +182,7 @@ func (m *mockEmailSender) SendMagicLink(_ context.Context, to, token string) err
 
 type mockTokenGen struct{}
 
-func (m *mockTokenGen) GenerateAccessToken(userID, email string) (string, error) {
+func (m *mockTokenGen) GenerateAccessToken(userID, email, role string) (string, error) {
 	return "access-" + userID, nil
 }
 
@@ -169,8 +190,8 @@ func (m *mockTokenGen) GenerateRefreshToken() (string, error) {
 	return "refresh-token", nil
 }
 
-func (m *mockTokenGen) ValidateAccessToken(token string) (string, string, error) {
-	return "", "", nil
+func (m *mockTokenGen) ValidateAccessToken(token string) (string, string, string, error) {
+	return "", "", "", nil
 }
 
 func (m *mockTokenGen) HashToken(token string) string {
@@ -372,11 +393,41 @@ func TestAuthService_RefreshTokens_RotatesSession(t *testing.T) {
 	}
 }
 
+func TestAuthService_RefreshTokens_UsesAtomicSessionClaim(t *testing.T) {
+	t.Parallel()
+	svc, users, sessions, _ := newTestAuthService()
+
+	users.users["user-1"] = &domain.User{ID: "user-1", Email: "refresh@test.com", Role: "admin"}
+	sessions.claimFn = func(_ context.Context, hash string) (*domain.Session, error) {
+		if hash != "hash-refresh-token" {
+			t.Fatalf("unexpected refresh hash %q", hash)
+		}
+		return &domain.Session{
+			ID:               "sess-atomic",
+			UserID:           "user-1",
+			RefreshTokenHash: hash,
+			ExpiresAt:        time.Now().Add(time.Hour),
+		}, nil
+	}
+
+	pair, err := svc.RefreshTokens(context.Background(), "refresh-token")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if pair.AccessToken == "" || pair.RefreshToken == "" {
+		t.Error("expected non-empty token pair")
+	}
+	if len(sessions.revoked) != 0 {
+		t.Errorf("atomic claim should replace separate RevokeSession call, got %v", sessions.revoked)
+	}
+}
+
 func TestAuthService_RefreshTokens_ExpiredSession(t *testing.T) {
 	t.Parallel()
 	svc, _, sessions, _ := newTestAuthService()
 
-	sessions.sessions["hash-expired-refresh"] = &domain.Session{
+	sessions.sessions["hash-expired-refresh"] = &domain.Session{ //nolint:gosec // Test fixture token hash.
 		ID:               "sess-2",
 		UserID:           "user-1",
 		RefreshTokenHash: "hash-expired-refresh",
@@ -393,7 +444,7 @@ func TestAuthService_Logout_RevokesSession(t *testing.T) {
 	t.Parallel()
 	svc, _, sessions, _ := newTestAuthService()
 
-	sessions.sessions["hash-logout-token"] = &domain.Session{
+	sessions.sessions["hash-logout-token"] = &domain.Session{ //nolint:gosec // Test fixture token hash.
 		ID:               "sess-3",
 		UserID:           "user-1",
 		RefreshTokenHash: "hash-logout-token",

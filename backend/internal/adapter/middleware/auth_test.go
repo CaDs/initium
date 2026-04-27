@@ -55,14 +55,15 @@ func TestAuth_ValidBearerToken_AuthenticatesUser(t *testing.T) {
 	t.Parallel()
 
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			require.Equal(t, "good-token", token)
-			return "user-1", "u@test.com", nil
+			return "user-1", "u@test.com", "admin", nil
 		},
 	}
-	var gotUserID string
+	var gotUserID, gotRole string
 	chained := middleware.Auth(tokens, false)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotUserID = middleware.GetUserID(r.Context())
+		gotRole = middleware.GetRole(r.Context())
 		w.WriteHeader(http.StatusOK)
 	}))
 
@@ -73,15 +74,16 @@ func TestAuth_ValidBearerToken_AuthenticatesUser(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	assert.Equal(t, "user-1", gotUserID)
+	assert.Equal(t, "admin", gotRole)
 }
 
 func TestAuth_ValidCookieToken_AuthenticatesUser(t *testing.T) {
 	t.Parallel()
 
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			require.Equal(t, "cookie-token", token)
-			return "user-2", "c@test.com", nil
+			return "user-2", "c@test.com", "user", nil
 		},
 	}
 	chained := middleware.Auth(tokens, false)(okHandler200())
@@ -112,8 +114,8 @@ func TestAuth_InvalidToken_Returns401(t *testing.T) {
 	t.Parallel()
 
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(_ string) (string, string, error) {
-			return "", "", errors.New("signature invalid")
+		ValidateAccessTokenFn: func(_ string) (string, string, string, error) {
+			return "", "", "", errors.New("signature invalid")
 		},
 	}
 	chained := middleware.Auth(tokens, false)(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
@@ -132,9 +134,9 @@ func TestAuth_BearerOverridesCookie(t *testing.T) {
 	t.Parallel()
 
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			require.Equal(t, "bearer-token", token, "Authorization header must take precedence")
-			return "bearer-user", "b@test.com", nil
+			return "bearer-user", "b@test.com", "user", nil
 		},
 	}
 	var gotUserID string

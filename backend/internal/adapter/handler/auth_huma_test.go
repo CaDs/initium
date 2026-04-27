@@ -33,6 +33,7 @@ type echoOutput struct {
 	Body struct {
 		UserID string `json:"user_id"`
 		Email  string `json:"email"`
+		Role   string `json:"role"`
 	}
 }
 
@@ -48,6 +49,7 @@ func registerEchoEndpoint(api huma.API, mws ...func(huma.Context, func(huma.Cont
 		if email, ok := ctx.Value(middleware.EmailKey).(string); ok {
 			out.Body.Email = email
 		}
+		out.Body.Role = middleware.GetRole(ctx)
 		return out, nil
 	})
 }
@@ -81,9 +83,9 @@ func TestHumaAuthMiddleware_ValidBearerHeader_AuthenticatesUser(t *testing.T) {
 
 	_, api := humatest.New(t)
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			require.Equal(t, "valid-token", token)
-			return "user-42", "user@example.com", nil
+			return "user-42", "user@example.com", "admin", nil
 		},
 	}
 	registerEchoEndpoint(api, handler.HumaAuthMiddleware(api, tokens, false))
@@ -94,9 +96,11 @@ func TestHumaAuthMiddleware_ValidBearerHeader_AuthenticatesUser(t *testing.T) {
 	out := testutil.MustDecodeJSON[struct {
 		UserID string `json:"user_id"`
 		Email  string `json:"email"`
+		Role   string `json:"role"`
 	}](t, resp.Body)
 	assert.Equal(t, "user-42", out.UserID)
 	assert.Equal(t, "user@example.com", out.Email)
+	assert.Equal(t, "admin", out.Role)
 }
 
 func TestHumaAuthMiddleware_ValidCookieToken_AuthenticatesUser(t *testing.T) {
@@ -105,9 +109,9 @@ func TestHumaAuthMiddleware_ValidCookieToken_AuthenticatesUser(t *testing.T) {
 
 	_, api := humatest.New(t)
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			require.Equal(t, "cookie-token", token)
-			return "user-cookie", "cookie@example.com", nil
+			return "user-cookie", "cookie@example.com", "user", nil
 		},
 	}
 	registerEchoEndpoint(api, handler.HumaAuthMiddleware(api, tokens, false))
@@ -123,10 +127,10 @@ func TestHumaAuthMiddleware_BearerOverridesCookie(t *testing.T) {
 
 	_, api := humatest.New(t)
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(token string) (string, string, error) {
+		ValidateAccessTokenFn: func(token string) (string, string, string, error) {
 			// extractBearer prefers the header; cookie should be ignored.
 			require.Equal(t, "header-token", token)
-			return "header-user", "header@example.com", nil
+			return "header-user", "header@example.com", "user", nil
 		},
 	}
 	registerEchoEndpoint(api, handler.HumaAuthMiddleware(api, tokens, false))
@@ -158,8 +162,8 @@ func TestHumaAuthMiddleware_InvalidToken_Returns401(t *testing.T) {
 
 	_, api := humatest.New(t)
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(_ string) (string, string, error) {
-			return "", "", errors.New("signature invalid")
+		ValidateAccessTokenFn: func(_ string) (string, string, string, error) {
+			return "", "", "", errors.New("signature invalid")
 		},
 	}
 	registerEchoEndpoint(api, handler.HumaAuthMiddleware(api, tokens, false))
@@ -193,8 +197,8 @@ func TestHumaRequireRole_AdminRole_Allows(t *testing.T) {
 	_, api := humatest.New(t)
 	authMW := handler.HumaAuthMiddleware(api, &testutil.MockTokenGenerator{}, true)
 	roleMW := handler.HumaRequireRole(api, "admin", func(_ context.Context, userID string) (string, error) {
-		require.Equal(t, "00000000-0000-0000-0000-000000000001", userID)
-		return "admin", nil
+		t.Fatalf("lookup should not run when auth middleware already supplied role for %s", userID)
+		return "", nil
 	})
 	registerEchoEndpoint(api, authMW, roleMW)
 
@@ -208,13 +212,19 @@ func TestHumaRequireRole_WrongRole_Returns403(t *testing.T) {
 	handler.InstallErrorEnvelope()
 
 	_, api := humatest.New(t)
-	authMW := handler.HumaAuthMiddleware(api, &testutil.MockTokenGenerator{}, true)
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(_ string) (string, string, string, error) {
+			return "user-1", "u@example.com", "user", nil
+		},
+	}
+	authMW := handler.HumaAuthMiddleware(api, tokens, false)
 	roleMW := handler.HumaRequireRole(api, "admin", func(_ context.Context, _ string) (string, error) {
-		return "user", nil // not admin
+		t.Fatal("lookup should not run when auth middleware supplied a role")
+		return "", nil
 	})
 	registerEchoEndpoint(api, authMW, roleMW)
 
-	resp := api.Get("/protected")
+	resp := api.Get("/protected", "Authorization: Bearer token")
 
 	require.Equal(t, http.StatusForbidden, resp.Code)
 	env := testutil.MustDecodeJSON[handler.APIError](t, resp.Body)
@@ -226,13 +236,18 @@ func TestHumaRequireRole_LookupError_Returns500(t *testing.T) {
 	handler.InstallErrorEnvelope()
 
 	_, api := humatest.New(t)
-	authMW := handler.HumaAuthMiddleware(api, &testutil.MockTokenGenerator{}, true)
+	tokens := &testutil.MockTokenGenerator{
+		ValidateAccessTokenFn: func(_ string) (string, string, string, error) {
+			return "user-1", "u@example.com", "", nil
+		},
+	}
+	authMW := handler.HumaAuthMiddleware(api, tokens, false)
 	roleMW := handler.HumaRequireRole(api, "admin", func(_ context.Context, _ string) (string, error) {
 		return "", errors.New("database down")
 	})
 	registerEchoEndpoint(api, authMW, roleMW)
 
-	resp := api.Get("/protected")
+	resp := api.Get("/protected", "Authorization: Bearer token")
 
 	require.Equal(t, http.StatusInternalServerError, resp.Code)
 }
@@ -259,30 +274,27 @@ func TestHumaRequireRole_MissingUserID_Returns401(t *testing.T) {
 // next middleware reads. Verify the chain works end-to-end.
 // ----------------------------------------------------------------------
 
-func TestHumaAuthMiddleware_WithRoleMiddleware_PassesUserID(t *testing.T) {
+func TestHumaAuthMiddleware_WithRoleMiddleware_UsesTokenRoleWithoutLookup(t *testing.T) {
 	t.Parallel()
 	handler.InstallErrorEnvelope()
 
 	_, api := humatest.New(t)
 	tokens := &testutil.MockTokenGenerator{
-		ValidateAccessTokenFn: func(_ string) (string, string, error) {
-			return "user-from-token", "u@example.com", nil
+		ValidateAccessTokenFn: func(_ string) (string, string, string, error) {
+			return "user-from-token", "u@example.com", "admin", nil
 		},
 	}
 	authMW := handler.HumaAuthMiddleware(api, tokens, false)
 
-	var roleLookupCalledFor string
 	roleMW := handler.HumaRequireRole(api, "admin", func(_ context.Context, userID string) (string, error) {
-		roleLookupCalledFor = userID
-		return "admin", nil
+		t.Fatalf("lookup should not run when auth middleware supplied role for %s", userID)
+		return "", nil
 	})
 	registerEchoEndpoint(api, authMW, roleMW)
 
 	resp := api.Get("/protected", "Authorization: Bearer t")
 
 	require.Equal(t, http.StatusOK, resp.Code)
-	assert.Equal(t, "user-from-token", roleLookupCalledFor,
-		"role lookup must receive the userID injected by auth middleware")
 }
 
 // ----------------------------------------------------------------------

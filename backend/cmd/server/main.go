@@ -119,7 +119,11 @@ func main() {
 
 	if err := infra.ServeHTTP(r, cfg.HTTPPort,
 		func(_ context.Context) { scheduler.Stop() },
-		func(_ context.Context) { workerPool.Close() },
+		func(ctx context.Context) {
+			if err := workerPool.Close(ctx); err != nil {
+				slog.Error("worker pool shutdown timed out", "error", err)
+			}
+		},
 	); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)

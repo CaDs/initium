@@ -143,21 +143,9 @@ func (s *AuthService) VerifyMagicLink(ctx context.Context, token string) (*domai
 func (s *AuthService) RefreshTokens(ctx context.Context, refreshToken string) (*domain.TokenPair, error) {
 	hash := s.tokens.HashToken(refreshToken)
 
-	session, err := s.sessions.FindSessionByRefreshTokenHash(ctx, hash)
+	session, err := s.sessions.ClaimSessionByRefreshTokenHash(ctx, hash)
 	if err != nil {
-		return nil, fmt.Errorf("finding session: %w", err)
-	}
-
-	if !session.IsValid() {
-		if session.RevokedAt != nil {
-			return nil, domain.ErrSessionRevoked
-		}
-		return nil, domain.ErrSessionExpired
-	}
-
-	// Revoke old session (refresh token rotation)
-	if err := s.sessions.RevokeSession(ctx, session.ID); err != nil {
-		return nil, fmt.Errorf("revoking old session: %w", err)
+		return nil, fmt.Errorf("claiming refresh session: %w", err)
 	}
 
 	user, err := s.users.FindByID(ctx, session.UserID)
@@ -221,7 +209,7 @@ func (s *AuthService) findOrCreateUser(ctx context.Context, email, name, avatarU
 }
 
 func (s *AuthService) createSession(ctx context.Context, user *domain.User) (*domain.TokenPair, error) {
-	accessToken, err := s.tokens.GenerateAccessToken(user.ID, user.Email)
+	accessToken, err := s.tokens.GenerateAccessToken(user.ID, user.Email, user.Role)
 	if err != nil {
 		return nil, fmt.Errorf("generating access token: %w", err)
 	}

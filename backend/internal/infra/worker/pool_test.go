@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/eridia/initium/backend/internal/infra/worker"
 )
@@ -26,7 +27,7 @@ func TestPool_ProcessesAllJobs(t *testing.T) {
 				processed.Add(1)
 			})
 		}
-		pool.Close()
+		assert.NoError(t, pool.Close(context.Background()))
 		close(done)
 	}()
 
@@ -38,4 +39,20 @@ func TestPool_ProcessesAllJobs(t *testing.T) {
 
 	assert.Equal(t, int64(jobCount), processed.Load(),
 		"every submitted job must be processed before Close returns")
+}
+
+func TestPool_Close_ContextDeadline_ReturnsError(t *testing.T) {
+	t.Parallel()
+
+	pool := worker.New()
+	release := make(chan struct{})
+	require.True(t, pool.Submit(func(context.Context) { <-release }))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	err := pool.Close(ctx)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	close(release)
 }

@@ -13,6 +13,7 @@ type contextKey string
 const (
 	UserIDKey contextKey = "user_id"
 	EmailKey  contextKey = "email"
+	RoleKey   contextKey = "role"
 )
 
 // Auth returns middleware that validates JWT access tokens.
@@ -23,6 +24,7 @@ func Auth(tokens domain.TokenGenerator, devBypass bool) func(http.Handler) http.
 			if devBypass {
 				ctx := context.WithValue(r.Context(), UserIDKey, "00000000-0000-0000-0000-000000000001")
 				ctx = context.WithValue(ctx, EmailKey, "dev@initium.local")
+				ctx = context.WithValue(ctx, RoleKey, "admin")
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
 			}
@@ -33,7 +35,7 @@ func Auth(tokens domain.TokenGenerator, devBypass bool) func(http.Handler) http.
 				return
 			}
 
-			userID, email, err := tokens.ValidateAccessToken(tokenStr)
+			userID, email, role, err := tokens.ValidateAccessToken(tokenStr)
 			if err != nil {
 				http.Error(w, `{"code":"UNAUTHORIZED","message":"invalid access token"}`, http.StatusUnauthorized)
 				return
@@ -41,6 +43,7 @@ func Auth(tokens domain.TokenGenerator, devBypass bool) func(http.Handler) http.
 
 			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			ctx = context.WithValue(ctx, EmailKey, email)
+			ctx = context.WithValue(ctx, RoleKey, role)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -50,6 +53,12 @@ func Auth(tokens domain.TokenGenerator, devBypass bool) func(http.Handler) http.
 func GetUserID(ctx context.Context) string {
 	id, _ := ctx.Value(UserIDKey).(string)
 	return id
+}
+
+// GetRole extracts the authenticated user's role from the request context.
+func GetRole(ctx context.Context) string {
+	role, _ := ctx.Value(RoleKey).(string)
+	return role
 }
 
 // RoleLookupFn is a callback that resolves the role for a given user ID.
@@ -68,10 +77,14 @@ func RequireRole(role string, lookup RoleLookupFn) func(http.Handler) http.Handl
 				return
 			}
 
-			userRole, err := lookup(r.Context(), userID)
-			if err != nil {
-				http.Error(w, `{"code":"INTERNAL_ERROR","message":"internal error"}`, http.StatusInternalServerError)
-				return
+			userRole := GetRole(r.Context())
+			if userRole == "" && lookup != nil {
+				var err error
+				userRole, err = lookup(r.Context(), userID)
+				if err != nil {
+					http.Error(w, `{"code":"INTERNAL_ERROR","message":"internal error"}`, http.StatusInternalServerError)
+					return
+				}
 			}
 
 			if userRole != role {

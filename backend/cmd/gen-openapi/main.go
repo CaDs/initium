@@ -33,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile(*out, yaml, 0o644); err != nil {
+	if err := os.WriteFile(*out, yaml, 0o600); err != nil {
 		slog.Error("writing spec", "path", *out, "error", err)
 		os.Exit(1)
 	}
@@ -68,10 +68,12 @@ func generateSpec() ([]byte, error) {
 // can build the API graph without importing infra (would create import cycles).
 type stubTokenGen struct{}
 
-func (stubTokenGen) GenerateAccessToken(_, _ string) (string, error)      { return "", nil }
-func (stubTokenGen) GenerateRefreshToken() (string, error)                { return "", nil }
-func (stubTokenGen) ValidateAccessToken(_ string) (string, string, error) { return "", "", nil }
-func (stubTokenGen) HashToken(_ string) string                            { return "" }
+func (stubTokenGen) GenerateAccessToken(_, _, _ string) (string, error) { return "", nil }
+func (stubTokenGen) GenerateRefreshToken() (string, error)              { return "", nil }
+func (stubTokenGen) ValidateAccessToken(_ string) (string, string, string, error) {
+	return "", "", "", nil
+}
+func (stubTokenGen) HashToken(_ string) string { return "" }
 
 func stubRoleLookup(_ context.Context, _ string) (string, error) { return "", nil }
 

@@ -151,14 +151,15 @@ func (m *MockUserRepository) Update(ctx context.Context, user *domain.User) erro
 
 // MockSessionRepository is a hand-rolled mock for domain.SessionRepository.
 type MockSessionRepository struct {
-	CreateSessionFn                 func(ctx context.Context, session *domain.Session) error
-	FindSessionByRefreshTokenHashFn func(ctx context.Context, hash string) (*domain.Session, error)
-	RevokeSessionFn                 func(ctx context.Context, sessionID string) error
-	RevokeAllUserSessionsFn         func(ctx context.Context, userID string) error
-	CreateMagicLinkTokenFn          func(ctx context.Context, token *domain.MagicLinkToken) error
-	FindMagicLinkTokenByHashFn      func(ctx context.Context, hash string) (*domain.MagicLinkToken, error)
-	MarkMagicLinkTokenUsedFn        func(ctx context.Context, tokenID string) error
-	DeleteExpiredMagicLinksFn       func(ctx context.Context) (int, error)
+	CreateSessionFn                  func(ctx context.Context, session *domain.Session) error
+	ClaimSessionByRefreshTokenHashFn func(ctx context.Context, hash string) (*domain.Session, error)
+	FindSessionByRefreshTokenHashFn  func(ctx context.Context, hash string) (*domain.Session, error)
+	RevokeSessionFn                  func(ctx context.Context, sessionID string) error
+	RevokeAllUserSessionsFn          func(ctx context.Context, userID string) error
+	CreateMagicLinkTokenFn           func(ctx context.Context, token *domain.MagicLinkToken) error
+	FindMagicLinkTokenByHashFn       func(ctx context.Context, hash string) (*domain.MagicLinkToken, error)
+	MarkMagicLinkTokenUsedFn         func(ctx context.Context, tokenID string) error
+	DeleteExpiredMagicLinksFn        func(ctx context.Context) (int, error)
 }
 
 func (m *MockSessionRepository) CreateSession(ctx context.Context, session *domain.Session) error {
@@ -166,6 +167,13 @@ func (m *MockSessionRepository) CreateSession(ctx context.Context, session *doma
 		return m.CreateSessionFn(ctx, session)
 	}
 	return nil
+}
+
+func (m *MockSessionRepository) ClaimSessionByRefreshTokenHash(ctx context.Context, hash string) (*domain.Session, error) {
+	if m.ClaimSessionByRefreshTokenHashFn != nil {
+		return m.ClaimSessionByRefreshTokenHashFn(ctx, hash)
+	}
+	return nil, nil
 }
 
 func (m *MockSessionRepository) FindSessionByRefreshTokenHash(ctx context.Context, hash string) (*domain.Session, error) {
@@ -227,15 +235,15 @@ func (m *MockSessionRepository) DeleteExpiredMagicLinks(ctx context.Context) (in
 // "refresh-{n}") so assertions don't need to predict random output.
 // Override the Fn fields when a test needs specific values or errors.
 type MockTokenGenerator struct {
-	GenerateAccessTokenFn  func(userID string, email string) (string, error)
+	GenerateAccessTokenFn  func(userID string, email string, role string) (string, error)
 	GenerateRefreshTokenFn func() (string, error)
-	ValidateAccessTokenFn  func(token string) (userID string, email string, err error)
+	ValidateAccessTokenFn  func(token string) (userID string, email string, role string, err error)
 	HashTokenFn            func(token string) string
 }
 
-func (m *MockTokenGenerator) GenerateAccessToken(userID string, email string) (string, error) {
+func (m *MockTokenGenerator) GenerateAccessToken(userID string, email string, role string) (string, error) {
 	if m.GenerateAccessTokenFn != nil {
-		return m.GenerateAccessTokenFn(userID, email)
+		return m.GenerateAccessTokenFn(userID, email, role)
 	}
 	return "access-" + userID, nil
 }
@@ -247,11 +255,11 @@ func (m *MockTokenGenerator) GenerateRefreshToken() (string, error) {
 	return "refresh-token", nil
 }
 
-func (m *MockTokenGenerator) ValidateAccessToken(token string) (string, string, error) {
+func (m *MockTokenGenerator) ValidateAccessToken(token string) (string, string, string, error) {
 	if m.ValidateAccessTokenFn != nil {
 		return m.ValidateAccessTokenFn(token)
 	}
-	return "", "", nil
+	return "", "", "", nil
 }
 
 func (m *MockTokenGenerator) HashToken(token string) string {

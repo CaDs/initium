@@ -15,6 +15,7 @@ type UserRepository interface {
 // SessionRepository defines persistence operations for sessions and magic link tokens.
 type SessionRepository interface {
 	CreateSession(ctx context.Context, session *Session) error
+	ClaimSessionByRefreshTokenHash(ctx context.Context, hash string) (*Session, error)
 	FindSessionByRefreshTokenHash(ctx context.Context, hash string) (*Session, error)
 	RevokeSession(ctx context.Context, sessionID string) error
 	RevokeAllUserSessions(ctx context.Context, userID string) error
@@ -66,8 +67,8 @@ type EmailSender interface {
 
 // TokenGenerator creates and validates JWTs.
 type TokenGenerator interface {
-	GenerateAccessToken(userID string, email string) (string, error)
+	GenerateAccessToken(userID string, email string, role string) (string, error)
 	GenerateRefreshToken() (string, error)
-	ValidateAccessToken(tokenString string) (userID string, email string, err error)
+	ValidateAccessToken(tokenString string) (userID string, email string, role string, err error)
 	HashToken(token string) string
 }

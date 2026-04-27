@@ -27,10 +27,11 @@ import (
 // for parity with `DEV_BYPASS_AUTH=true` flows.
 func HumaAuthMiddleware(api huma.API, tokens domain.TokenGenerator, devBypass bool) func(huma.Context, func(huma.Context)) {
 	return func(ctx huma.Context, next func(huma.Context)) {
-		var userID, email string
+		var userID, email, role string
 		if devBypass {
 			userID = "00000000-0000-0000-0000-000000000001"
 			email = "dev@initium.local"
+			role = "admin"
 		} else {
 			token := extractBearer(ctx)
 			if token == "" {
@@ -39,7 +40,7 @@ func HumaAuthMiddleware(api huma.API, tokens domain.TokenGenerator, devBypass bo
 				return
 			}
 			var err error
-			userID, email, err = tokens.ValidateAccessToken(token)
+			userID, email, role, err = tokens.ValidateAccessToken(token)
 			if err != nil {
 				_ = huma.WriteErr(api, ctx, http.StatusUnauthorized,
 					"invalid access token", err)
@@ -49,6 +50,7 @@ func HumaAuthMiddleware(api huma.API, tokens domain.TokenGenerator, devBypass bo
 
 		c := context.WithValue(ctx.Context(), middleware.UserIDKey, userID)
 		c = context.WithValue(c, middleware.EmailKey, email)
+		c = context.WithValue(c, middleware.RoleKey, role)
 		next(huma.WithContext(ctx, c))
 	}
 }
@@ -64,11 +66,15 @@ func HumaRequireRole(api huma.API, role string, lookup middleware.RoleLookupFn) 
 				"missing user identity", domain.ErrInvalidCredentials)
 			return
 		}
-		got, err := lookup(ctx.Context(), userID)
-		if err != nil {
-			_ = huma.WriteErr(api, ctx, http.StatusInternalServerError,
-				"role lookup failed", err)
-			return
+		got := middleware.GetRole(ctx.Context())
+		if got == "" && lookup != nil {
+			var err error
+			got, err = lookup(ctx.Context(), userID)
+			if err != nil {
+				_ = huma.WriteErr(api, ctx, http.StatusInternalServerError,
+					"role lookup failed", err)
+				return
+			}
 		}
 		if got != role {
 			_ = huma.WriteErr(api, ctx, http.StatusForbidden,

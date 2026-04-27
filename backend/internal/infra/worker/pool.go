@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"sync"
 )
@@ -19,12 +20,14 @@ type Pool struct {
 	jobs   chan Job
 	wg     sync.WaitGroup
 	cancel context.CancelFunc
+	mu     sync.RWMutex
+	closed bool
 }
 
 // New creates a Pool with defaultWorkers workers and a job queue of defaultQueue.
 // Call Close to drain all queued jobs and wait for workers to finish.
 func New() *Pool {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // Cancel is retained and called by Close.
 	p := &Pool{
 		jobs:   make(chan Job, defaultQueue),
 		cancel: cancel,
@@ -38,6 +41,12 @@ func New() *Pool {
 
 // Submit enqueues a job. Returns false if the queue is full and the job was dropped.
 func (p *Pool) Submit(job Job) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.closed {
+		slog.Warn("worker pool closed, dropping job")
+		return false
+	}
 	select {
 	case p.jobs <- job:
 		return true
@@ -48,11 +57,29 @@ func (p *Pool) Submit(job Job) bool {
 }
 
 // Close signals no more jobs, waits for in-flight work to finish, then returns.
-// A context with a deadline should be used by the caller to bound the wait.
-func (p *Pool) Close() {
-	close(p.jobs)
-	p.wg.Wait()
-	p.cancel()
+// The provided context bounds the drain wait.
+func (p *Pool) Close(ctx context.Context) error {
+	p.mu.Lock()
+	if !p.closed {
+		p.closed = true
+		close(p.jobs)
+	}
+	p.mu.Unlock()
+
+	done := make(chan struct{})
+	go func() {
+		p.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		p.cancel()
+		return nil
+	case <-ctx.Done():
+		p.cancel()
+		return fmt.Errorf("closing worker pool: %w", ctx.Err())
+	}
 }
 
 func (p *Pool) work(ctx context.Context) {

@@ -1,23 +1,42 @@
-run:
-  timeout: 3m
-  skip-dirs:
-    - vendor
-    - tmp
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
     - errcheck
-    - gosimple
+    - gosec
     - govet
+    - ineffassign
+    - misspell
     - staticcheck
+    - unused
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - gosec
+        text: "G706:"
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - vendor$
+      - tmp$
+formatters:
+  enable:
     - gofmt
     - goimports
-    - ineffassign
-    - unused
-    - misspell
-    - gosec
-
-linters-settings:
-  goimports:
-    local-prefixes: github.com/eridia/initium
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/eridia/initium
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

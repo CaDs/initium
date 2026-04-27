@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/eridia/initium/backend/internal/domain"
 )
@@ -43,6 +44,30 @@ func (r *GormSessionRepo) FindSessionByRefreshTokenHash(ctx context.Context, has
 		return nil, fmt.Errorf("querying session: %w", err)
 	}
 	return m.ToDomain(), nil
+}
+
+func (r *GormSessionRepo) ClaimSessionByRefreshTokenHash(ctx context.Context, hash string) (*domain.Session, error) {
+	now := time.Now()
+	var m SessionModel
+	res := r.db.WithContext(ctx).Model(&m).
+		Clauses(clause.Returning{}).
+		Where("refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > ?", hash, now).
+		Update("revoked_at", now)
+	if res.Error != nil {
+		return nil, fmt.Errorf("claiming refresh session: %w", res.Error)
+	}
+	if res.RowsAffected == 1 {
+		return m.ToDomain(), nil
+	}
+
+	session, err := r.FindSessionByRefreshTokenHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	if session.RevokedAt != nil {
+		return nil, domain.ErrSessionRevoked
+	}
+	return nil, domain.ErrSessionExpired
 }
 
 func (r *GormSessionRepo) RevokeSession(ctx context.Context, sessionID string) error {

@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net"
 	"net/smtp"
+	"net/url"
 )
 
 //go:embed templates/*.html
@@ -42,18 +44,12 @@ func NewSMTPSender(host string, port int, from string, appURL string, appDeepSch
 
 // SendMagicLink sends a magic link email with both web and app deep links.
 func (s *SMTPSender) SendMagicLink(ctx context.Context, to string, token string) error {
-	link := fmt.Sprintf("%s/api/auth/verify?token=%s", s.appURL, token)
-
-	data := map[string]string{
-		"Link": link,
-	}
-
-	if s.appDeepScheme != "" {
-		data["AppLink"] = fmt.Sprintf("%s://auth/verify?token=%s", s.appDeepScheme, token)
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("sending email: %w", err)
 	}
 
 	var body bytes.Buffer
-	if err := s.tmpl.ExecuteTemplate(&body, "magic_link.html", data); err != nil {
+	if err := s.tmpl.ExecuteTemplate(&body, "magic_link.html", s.magicLinkData(token)); err != nil {
 		return fmt.Errorf("rendering magic link template: %w", err)
 	}
 
@@ -62,11 +58,61 @@ func (s *SMTPSender) SendMagicLink(ctx context.Context, to string, token string)
 		s.from, to, body.String(),
 	)
 
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	if err := smtp.SendMail(addr, nil, s.from, []string{to}, []byte(msg)); err != nil {
+	if err := s.sendMail(ctx, to, []byte(msg)); err != nil {
 		return fmt.Errorf("sending email: %w", err)
 	}
 
 	slog.Info("magic link email sent")
 	return nil
+}
+
+func (s *SMTPSender) magicLinkData(token string) map[string]string {
+	escapedToken := url.QueryEscape(token)
+	data := map[string]string{
+		"Link": fmt.Sprintf("%s/api/auth/verify?token=%s", s.appURL, escapedToken),
+	}
+	if s.appDeepScheme != "" {
+		data["AppLink"] = fmt.Sprintf("%s://auth/verify?token=%s", s.appDeepScheme, escapedToken)
+	}
+	return data
+}
+
+func (s *SMTPSender) sendMail(ctx context.Context, to string, msg []byte) error {
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(deadline); err != nil {
+			return err
+		}
+	}
+
+	client, err := smtp.NewClient(conn, s.host)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	if err := client.Mail(s.from); err != nil {
+		return err
+	}
+	if err := client.Rcpt(to); err != nil {
+		return err
+	}
+	w, err := client.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(msg); err != nil {
+		_ = w.Close()
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 }

@@ -19,7 +19,7 @@ import (
 func NewAPI(r chi.Router) huma.API {
 	cfg := huma.DefaultConfig("Initium API", "0.1.0")
 	cfg.Info.Description = "POC starter template API. Generated from Go code by Huma — never hand-edit."
-	cfg.OpenAPI.Servers = []*huma.Server{
+	cfg.Servers = []*huma.Server{
 		{URL: "http://localhost:8000", Description: "Local development"},
 	}
 	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
