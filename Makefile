@@ -48,11 +48,11 @@ GRADLE_ENV := JAVA_HOME="$(ANDROID_STUDIO_JBR)" ANDROID_HOME="$(ANDROID_SDK)"
 .PHONY: help \
         setup keygen clobber \
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
-        db\:migrate db\:rollback db\:reset db\:seed db\:create db\:psql \
+        db\:migrate db\:rollback db\:reset db\:create db\:psql \
         gen gen\:openapi \
-        test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:ios test\:ios\:coverage test\:android test\:android\:coverage test\:contract test\:all \
-        lint lint\:backend lint\:web lint\:ios lint\:android \
-        format format\:backend format\:web format\:ios format\:android \
+        test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:ios test\:ios\:coverage test\:android test\:android\:coverage test\:mobile test\:contract test\:all \
+        lint lint\:backend lint\:web lint\:ios lint\:android lint\:mobile \
+        format format\:backend format\:web format\:ios \
         dev dev\:backend dev\:web dev\:ios dev\:android \
         build\:backend build\:web build\:ios build\:android \
         routes docs check\:parity check\:skills check\:staged preflight
@@ -139,13 +139,6 @@ db\:reset: ## Drop, recreate, migrate — DESTROYS ALL DATA
 	migrate -path $(BACKEND_DIR)/migrations -database "$(DB_URL)" drop -f
 	$(MAKE) db\:migrate
 
-db\:seed: ## Seed dev data (idempotent; no-op until backend/cmd/seed exists)
-	@if [ -d $(BACKEND_DIR)/cmd/seed ]; then \
-		cd $(BACKEND_DIR) && go run ./cmd/seed; \
-	else \
-		echo "No seed binary yet. Create backend/cmd/seed/main.go to populate dev data."; \
-	fi
-
 db\:create: ## Create new migration (usage: make db:create NAME=add_orders)
 	migrate create -ext sql -dir $(BACKEND_DIR)/migrations -seq $(NAME)
 
@@ -156,9 +149,9 @@ db\:psql: ## Open psql against the dev database
 ## group: gen
 # ============================================================================
 
-gen: gen\:openapi ## Regenerate all types from the OpenAPI spec (alias for gen:openapi)
+gen: gen\:openapi ## Run all codegen (currently just gen:openapi)
 
-gen\:openapi: ## Generate openapi.yaml from Huma + regenerate web TypeScript types
+gen\:openapi: ## Export Huma's in-memory spec to backend/api/openapi.yaml + regen web TS types. Required because preflight runs without a server, and codegen + check:parity read the on-disk file.
 	cd $(BACKEND_DIR) && go run ./cmd/gen-openapi
 	cd $(WEB_DIR) && npx openapi-typescript ../backend/api/openapi.yaml -o src/lib/api-types.ts
 
@@ -193,7 +186,7 @@ test\:ios: ## iOS Swift Testing on simulator (requires Xcode 26+)
 		-destination 'platform=iOS Simulator,name=$(IOS_SIM)' \
 		-quiet
 
-test\:ios\:coverage: ## iOS tests with coverage (Xcode 26+; report only — floor enforcement deferred)
+test\:ios\:coverage: ## iOS tests with coverage (fails under 25% line coverage — matches Android/Web)
 	cd $(IOS_DIR) && xcodebuild test \
 		-project initium.xcodeproj \
 		-scheme initium \
@@ -201,8 +194,13 @@ test\:ios\:coverage: ## iOS tests with coverage (Xcode 26+; report only — floo
 		-enableCodeCoverage YES \
 		-derivedDataPath build \
 		-quiet
-	@echo "iOS coverage data in $(IOS_DIR)/build/Build/ProfileData/."
-	@echo "Open Xcode (Report Navigator → Coverage) for the rendered report."
+	@RESULT=$$(ls -td $(IOS_DIR)/build/Logs/Test/*.xcresult 2>/dev/null | head -1); \
+	if [ -z "$$RESULT" ]; then echo "FAIL: no xcresult bundle found"; exit 1; fi; \
+	xcrun xccov view --report "$$RESULT" | awk '/^initium\.app/ { \
+		pct_str = $$2; sub(/%$$/, "", pct_str); pct = pct_str + 0; \
+		printf "iOS coverage: %.1f%%\n", pct; \
+		if (pct < 25.0) { print "FAIL: coverage below 25% floor"; exit 1 } \
+	}'
 
 test\:android: _ensure-android ## Android unit tests (./gradlew test)
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew test
@@ -213,6 +211,10 @@ test\:android\:coverage: _ensure-android ## Android tests + Jacoco (fails under 
 
 test\:android\:instrumented: _ensure-android ## Android Compose UI tests (requires running emulator or device)
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew connectedAndroidTest
+
+test\:mobile: ## iOS + Android tests (sequential — different toolchains, both heavy; not run in `make test`)
+	$(MAKE) test\:ios
+	$(MAKE) test\:android
 
 test\:contract: ## Schemathesis contract tests (requires running backend; heavy — CI-only)
 	bash scripts/schemathesis.sh
@@ -238,6 +240,10 @@ lint\:ios: ## iOS static analysis (xcodebuild with -quiet; SwiftLint/SwiftFormat
 lint\:android: _ensure-android ## Android Lint + (future) ktlint/detekt
 	cd $(ANDROID_DIR) && $(GRADLE_ENV) ./gradlew lint
 
+lint\:mobile: ## iOS + Android linters (sequential; not run in `make lint`)
+	$(MAKE) lint\:ios
+	$(MAKE) lint\:android
+
 format: ## Format all code (backend + web)
 	@$(MAKE) -j2 format\:backend format\:web
 
@@ -249,9 +255,6 @@ format\:web: ## prettier web
 
 format\:ios: ## Swift format (uses Xcode's bundled swift-format)
 	cd $(IOS_DIR) && xcrun swift-format -i -r initium initiumTests initiumUITests
-
-format\:android: ## Kotlin format (relies on Android Studio's formatter; ktlint not yet wired)
-	@echo "format:android is a placeholder; ktlint/detekt not yet wired. Use Android Studio's Reformat Code for now."
 
 # ============================================================================
 ## group: dev
