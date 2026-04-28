@@ -2,10 +2,9 @@
 # preflight.sh — every gate a PR must pass, same order CI runs them.
 # Designed for agent self-check: run this before declaring a feature done.
 #
-# Native mobile (iOS / Android) tests and linters run separately via
-# `make test:ios`, `make test:android`, `make lint:ios`, `make lint:android`
-# because they require Xcode + a simulator (iOS) or a JDK + Gradle
-# (Android) that aren't guaranteed in every environment.
+# All gates run in pure Node / Go — no Xcode, no Android Studio. The
+# mobile QR-driven dev loop (`make dev:mobile`) needs a real device with
+# Expo Go, but that's separate from the gate.
 
 set -euo pipefail
 
@@ -15,15 +14,15 @@ step() { printf "\n\033[1;36m▸ %s\033[0m\n" "$*"; }
 
 trap 'red "preflight FAILED"' ERR
 
-step "lint (backend + web, parallel)"
+step "lint (backend + web + mobile, parallel)"
 make lint
 
-step "test:coverage (backend + web, parallel — phased floors)"
+step "test:coverage (backend + web + mobile, parallel — phased floors)"
 # Coverage gates run instead of plain `make test` so a regression in
 # coverage fails the same gate that catches functional regressions.
-# Floors are intentionally low (35% backend, 25% web) and ramp toward
-# 80% in follow-up PRs as coverage grows.
-make -j2 test:backend:coverage test:web:coverage
+# Floors are intentionally low (35% backend, 25% web, 25% mobile) and
+# ramp toward 80% in follow-up PRs as coverage grows.
+make -j3 test:backend:coverage test:web:coverage test:mobile:coverage
 
 step "check:gen-drift (openapi.yaml + api-types.ts up to date)"
 # Regenerate the artifacts that downstream stacks consume. If a PR added
@@ -35,7 +34,7 @@ if ! git diff --exit-code -- backend/api/openapi.yaml web/src/lib/api-types.ts; 
     exit 1
 fi
 
-step "check:parity (every /api/ spec path has a consumer; mobile is paused)"
+step "check:parity (every /api/ spec path has a consumer in web/src or mobile)"
 make check:parity
 
 step "check:skills (exemplar path + symbol drift)"
