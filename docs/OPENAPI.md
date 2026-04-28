@@ -12,29 +12,22 @@ hand-edited.
 |-------------------|--------------------------------|-----------------------------------------|------------------------|
 | Backend           | Code-first via Huma            | `backend/api/openapi.yaml` (generated)  | API contract — single source of truth |
 | Web               | `openapi-typescript`           | `web/src/lib/api-types.ts`              | TypeScript types (Zod still runtime-validates) |
-| Mobile — iOS      | **deferred**                   | will use `swift-openapi-generator`      | will produce typed Swift clients when wired |
-| Mobile — Android  | **deferred**                   | will use `openapi-generator` (kotlin)   | will produce Retrofit + kotlinx.serialization clients when wired |
+| Mobile (Expo)     | hand-written                   | `mobile/src/api/models.ts`              | TypeScript DTOs; codegen via `openapi-typescript` is deferred until a feature proves it worth wiring |
 
 Backend domain entities in `backend/internal/domain/` remain
 **hand-written**. Handler-level wire types live in
 `backend/internal/adapter/handler/types.go`. Per-handler input/output
 structs live in the handler files themselves with Huma struct tags.
 
-### Why native mobile codegen is deferred
+### Why mobile codegen is deferred
 
-The Flutter app that used to live under `mobile/` was removed on branch
-`feat/dropping_flutter`. The replacement — two native apps (SwiftUI +
-Jetpack Compose) — starts as a 3-tab UI shell with no backend calls.
-Codegen wiring is valuable only once the apps actually *talk* to the
-backend; pre-scaffolding it now would add:
-
-- Build-time complexity (SPM `plugin:` or Gradle `openapi-generator`
-  task running on every build).
-- Generated-code diffs landing in PRs that don't touch API behavior.
-- Apple / Kotlin idiom decisions frozen before there's a need.
-
-The plan: pair the first networked feature with the codegen plumbing.
-Either team can go first — they don't need to be simultaneous.
+The Expo app at `mobile/` consumes the spec via hand-written DTOs in
+`mobile/src/api/models.ts`. Wiring `openapi-typescript` would add a
+codegen step + generated-code diffs in every API PR; for a starter
+template that's net-negative until there's a real surface area to
+cover. Pair the first networked feature where parity drift becomes
+painful with the `openapi-typescript --output mobile/src/api/spec.ts`
+plumbing.
 
 ## Workflow
 
@@ -128,5 +121,7 @@ the live chi route table; `make routes` curls and pretty-prints it.
    generated spec.
 5. `make gen:openapi` to update `backend/api/openapi.yaml` +
    `web/src/lib/api-types.ts`.
-6. Add a web (Zod) consumer; `make check:parity` fails otherwise.
+6. Add a web (Zod) consumer or a mobile consumer (mirror the DTO in
+   `mobile/src/api/models.ts` and add the endpoint helper in
+   `mobile/src/api/endpoints.ts`); `make check:parity` fails otherwise.
 7. Commit the handler + regenerated artifacts together.

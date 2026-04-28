@@ -1,25 +1,30 @@
 # mobile
 
-Two independent native apps:
-
-- **`ios/initium/`** — SwiftUI, iOS 17.0+, Liquid Glass opt-in, Xcode 26+.
-- **`android/`** — Jetpack Compose + Material 3, minSdk 24, Kotlin 2.2.x.
-
-Both ship the same 3-tab shell (Home / Main / Settings) as starter
-scaffolding. See `AGENTS.md` in this folder for cross-platform rules
-and the two per-platform `AGENTS.md` files for platform-specific
-conventions.
+A single Expo app that targets iOS and Android from one TypeScript
+codebase. Replaces the prior native SwiftUI + Jetpack Compose apps so
+forking POCs no longer pays a two-toolchain tax.
 
 ## Quick start
 
 ```sh
-make dev:ios        # build + run the iOS app on a simulator
-make dev:android    # install + launch the Android app on a device/emulator
+cd mobile && npm install
+cp .env.example .env
 
-make test:ios       # Swift Testing
-make test:android   # Android JVM unit tests
+make dev:mobile             # Metro + QR for Expo Go on a real device
+make test:mobile            # Jest suite
+make lint:mobile            # ESLint + tsc --noEmit
 ```
 
-The Flutter app that used to live here was dropped on branch
-`feat/dropping_flutter`. See that branch's history for context on what
-was removed.
+`make preflight` includes the mobile lint, typecheck, and test suite —
+no Xcode or Android Studio needed.
+
+## Where things live
+
+- `app/` — Expo Router routes (file-based)
+- `src/api/` — `APIClient`, token storage, models, endpoint helpers
+- `src/auth/` — Zustand auth store + selectors
+- `src/ui/` — shared UI primitives
+- `__tests__/` — Jest specs
+
+See `AGENTS.md` for cross-stack rules and the
+`.claude/skills/initium-mobile/` skill for conventions.

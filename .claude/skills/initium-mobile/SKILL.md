@@ -1,170 +1,185 @@
 ---
 name: initium-mobile
-description: Use when writing or modifying either native mobile app in the Initium template — the SwiftUI iOS app (`mobile/ios/initium/`) or the Jetpack Compose Android app (`mobile/android/`). Triggers on paths under `mobile/ios/**` or `mobile/android/**`. Encodes the two-app structure, the parity-with-web rule, and the per-platform conventions for this fork-and-specialize starter template.
+description: Use when writing or modifying the Expo (React Native + TypeScript) mobile app in the Initium template. Triggers on paths under `mobile/**`. Encodes the single-codebase Expo conventions, the parity-with-web rule, and the auth/deep-link contract for this fork-and-specialize starter template.
 ---
 
 # initium-mobile
 
-You are editing one of **two native mobile apps** in this Initium fork. The
-Flutter codebase was removed on branch `feat/dropping_flutter`; the mobile
-surface is now:
+You are editing the **single Expo app** that ships with this Initium fork.
+Native iOS (SwiftUI) and Android (Jetpack Compose) were dropped because
+forking POCs against two native toolchains slowed iteration. The mobile
+surface is now one TypeScript codebase that targets both platforms via
+Expo Go (dev) and EAS Build (release).
 
-- **iOS**: SwiftUI, targeting iOS 17.0+, built with Xcode 26+. Liquid Glass
-  is supported as an *opt-in* per-surface treatment that falls back
-  gracefully on iOS < 26 via `.regularMaterial`. See
-  `patterns/ios.md` for conventions and the `.liquidGlassCard()` modifier.
-- **Android**: Jetpack Compose + Material 3, Kotlin 2.x, minSdk 24 /
-  targetSdk 36. Uses `NavigationSuiteScaffold` for adaptive nav (bottom bar
-  on phones, nav rail on larger screens). See `patterns/android.md`.
+## Stack at a glance
 
-> **What ships today.** Both apps ship an auth-gated 3-tab shell:
-> login screen (magic link working; Google button stubbed) gives way
-> to Home / Main / Settings after sign-in. The Home tab renders the
-> authenticated user profile (email / name / role / id) mirroring
-> `web/src/app/home/page.tsx`. Each app has a secure token store,
-> a single-flight refresh interceptor, and deep-link handling for
-> `initium://auth/verify?token=...`.
->
-> **Still deferred** (do NOT pre-scaffold): Google Sign-In SDKs,
-> OpenAPI codegen, theme switcher, locale switcher + i18n,
-> Sentry / Firebase Crashlytics. Each lands in its own follow-up PR.
+- **Runtime**: Expo SDK 54, React Native 0.81, TypeScript strict.
+- **Router**: Expo Router v4, file-based, typed routes (`experiments.typedRoutes: true`).
+- **Styling**: NativeWind v4 — Tailwind class strings with `className=`.
+  Same tokens as `web/src/app/globals.css` so designs port directly.
+- **State**: Zustand. One auth store at `mobile/src/auth/store.ts`. Do
+  not introduce Redux, MobX, Recoil, or React Context for app-wide
+  state.
+- **Secure storage**: `expo-secure-store` (Keychain on iOS,
+  EncryptedSharedPreferences on Android).
+- **Google Sign-In**: `expo-auth-session/providers/google` —
+  Expo-Go-compatible. No native module dependency.
+- **Deep linking**: scheme `initium://`, declared in `mobile/app.json`.
+  Magic links land at `mobile/app/auth/verify.tsx`.
+- **Testing**: Jest (`jest-expo` preset) + `@testing-library/react-native`.
+  Coverage floor 25% lines (enforced in `mobile/jest.config.js`).
+- **Lint**: `eslint-config-expo` + Prettier.
+- **Distribution**: Expo Go for dev (scan QR from `make dev:mobile`).
+  `mobile/eas.json` is scaffolded with `development`/`preview`/`production`
+  profiles for when a fork wants standalone builds.
 
 ## Gates that will fail your PR
 
 Run `make preflight` before committing. It fails if any of the following
 is true:
 
-- Every `/api/*` spec path that should have a web consumer doesn't
-  (`make check:parity`). Mobile-side parity is **paused** while the
-  native apps catch up — `/api/auth/mobile/*` is in the checker's
-  exclusion list.
-- An exemplar path cited in this skill no longer resolves, or an
+- Mobile lint or typecheck fails (`make lint:mobile` runs ESLint + `tsc --noEmit`).
+- Mobile tests or coverage fail (`make test:mobile:coverage`, 25% line floor).
+- Every `/api/*` spec path is consumed by either `web/src/**` or
+  `mobile/**` (`make check:parity`). The Expo app is a real consumer
+  now — `/api/auth/mobile/*` no longer needs an exclusion.
+- Exemplar paths cited in this skill no longer resolve, or an
   `<!-- expect: symbol -->` annotation has gone stale
   (`make check:skills`).
 - `git status --porcelain` is non-empty after the run
   (`make check:staged`).
 
-Native mobile tests and linters are **not** part of `make preflight`
-(Xcode and a simulator aren't guaranteed in every environment). Run them
-explicitly: `make test:ios`, `make test:android`, `make lint:ios`,
-`make lint:android`.
+Mobile gates run in pure Node — no Xcode, no Android Studio. Devices
+are only needed for the QR-driven Expo Go dev loop.
 
-## The two-app structure
+## Layout
 
 ```
 mobile/
-├── AGENTS.md          — cross-platform rules (what applies to both apps)
-├── CLAUDE.md          — symlink → AGENTS.md
-├── README.md          — one-page index
-├── ios/
-│   └── initium/       — Xcode project root (`initium.xcodeproj` lives here)
-│       ├── initium/           — app sources
-│       ├── initiumTests/      — Swift Testing unit tests
-│       ├── initiumUITests/    — XCUITest UI tests
-│       ├── AGENTS.md
-│       └── CLAUDE.md → AGENTS.md
-└── android/
-    ├── app/src/main/java/com/example/initium/   — Kotlin sources
-    ├── gradle/libs.versions.toml                — version catalog
-    ├── AGENTS.md
-    └── CLAUDE.md → AGENTS.md
+├── app/                    Expo Router routes (file-based)
+│   ├── _layout.tsx         root layout, auth bootstrap, splash
+│   ├── index.tsx           bootstrap redirect (auth gate)
+│   ├── login.tsx           magic-link form + Google button
+│   ├── auth/verify.tsx     magic-link deep-link target
+│   └── (tabs)/             3-tab authenticated shell
+│       ├── _layout.tsx     Tabs navigator + auth guard
+│       ├── home.tsx        /api/me profile card
+│       ├── main.tsx        placeholder
+│       └── settings.tsx    logout
+├── src/
+│   ├── api/
+│   │   ├── client.ts       APIClient — single-flight 401 refresh
+│   │   ├── tokens.ts       SecureStore wrapper
+│   │   ├── models.ts       hand-written DTOs
+│   │   ├── endpoints.ts    one method per /api/* path
+│   │   └── deeplink.ts     parseDeepLink (pure)
+│   ├── auth/
+│   │   ├── store.ts        Zustand auth store
+│   │   └── useAuth.ts      selector hooks
+│   ├── ui/LiquidCard.tsx   expo-blur card
+│   └── config.ts           env-driven config (API URL, Google IDs)
+├── __tests__/              Jest specs
+└── app.json | eas.json | metro.config.js | tailwind.config.ts | …
 ```
-
-Shared product identity (bundle ID, app name, icons, marketing strings)
-is NOT yet extracted to a single source of truth. Each app carries its
-own copy. When the template matures, a `mobile/shared/` with a single
-`brand.yaml` can be added and code-generated out.
 
 ## Cross-cutting rules
 
 - **Parity**: see [../_shared/parity.md](../_shared/parity.md). The rule
-  now reads "every user-facing feature on web, iOS, AND Android". If
-  you ship a feature on one but not the other two, the PR description
-  must explain why.
-- **No OpenAPI codegen for mobile yet.** When API calls land, iOS will
-  use `swift-openapi-generator`, Android will use the Kotlin target of
-  `openapi-generator`. Do not hand-write DTOs — wait for the codegen
-  wiring instead.
-- **Bundle / package identifiers (current scaffolding state)**:
-  - iOS: `cads.initium` (Xcode template default — rename per-fork)
-  - Android: `com.example.initium` (Android Studio template default —
-    rename per-fork)
-  Forks should rename both to match the product. A mismatch between
-  the two is fine during development; converging them is a `feat` PR
-  when the product is named.
-- **Commit hygiene**: when adding a new feature, include BOTH
-  `mobile/ios/**` and `mobile/android/**` changes in the same commit
-  (or two coordinated commits landing together). Half-feature PRs
-  break parity and are harder to review.
+  reads "every user-facing feature on web AND mobile". One Expo app
+  satisfies both store targets, so a feature lands twice (web + mobile),
+  not three times.
+- **Hand-written DTOs.** Mobile uses `mobile/src/api/models.ts` —
+  `openapi-typescript` codegen is deferred until a feature proves it
+  worth wiring. When the spec changes, update the matching DTO
+  manually.
+- **Bundle ID + scheme.** Both platforms use `com.initium.app` with
+  scheme `initium://`. Forks rename via `mobile/app.json` (`ios.bundleIdentifier`,
+  `android.package`, `scheme`).
+- **One-PR-per-feature.** When you ship a feature, the PR touches both
+  `web/src/**` and `mobile/**` (or names the parity mirror in the PR
+  description with one sentence of justification per surface).
 
-## The contract-first workflow (current — hand-written DTOs)
+## What NOT to do
 
-When a new API response needs a mobile client:
+- **Do not introduce React Navigation.** Routing belongs to Expo Router.
+- **Do not hand-roll `fetch`.** Always go through `APIClient.send` so
+  the Bearer header + single-flight refresh stay consistent.
+- **Do not add native modules without a dev build.** Expo Go bundles
+  a fixed set of native modules; anything else (e.g.
+  `@react-native-google-signin/google-signin`, Sentry SDKs, Firebase)
+  requires `eas build --profile development` first.
+- **Do not pre-scaffold deferred plumbing**: theme switcher, i18n
+  (en/es/ja), Sentry/Crashlytics, OpenAPI codegen. Each lands in its
+  own follow-up PR with the first feature that needs it.
+- **Do not commit the `ios/` or `android/` directories** that
+  `expo prebuild` creates — they're in `.gitignore` because Expo's
+  managed workflow regenerates them.
 
-1. Edit `backend/api/openapi.yaml` (backend side).
-2. Run `make gen:openapi` → regenerates Go + TypeScript types.
-3. Update the hand-written DTOs:
-   - iOS: `mobile/ios/initium/initium/API/Models.swift` — add / edit
-     the `Codable` struct with explicit `CodingKeys` for snake_case
-     field names.
-   - Android: `mobile/android/app/src/main/java/com/example/initium/api/Models.kt` —
-     add / edit the Moshi data class with `@Json(name = "...")` for
-     snake_case field names.
-4. Add a method on `APIClient` (iOS) / `ApiClient` (Android) that
-   consumes or produces the new type.
-5. `make check:parity` verifies the spec path is referenced on at
-   least one surface.
+## Auth flow (single-flight 401 refresh)
 
-**OpenAPI codegen is deferred** to a follow-up PR (SPM plugin on iOS,
-Gradle plugin on Android). Until it lands, every spec change must be
-mirrored manually in both `Models.*` files.
+The shape of `mobile/src/api/client.ts` <!-- expect: refreshInFlight --> mirrors the deleted SwiftUI `APIClient.swift`:
 
-## Platform-specific conventions
+1. `send()` reads the stored access token, attaches a `Bearer` header,
+   fires the request via the injected `fetchImpl`.
+2. On `401` (and `skipAuth` false), it calls `runRefresh()`. If a
+   refresh is already in flight, callers `await` the same `Promise`
+   instead of making a second `/api/auth/refresh` call (single-flight).
+3. After the refresh resolves, the original request is retried once.
+4. If the second attempt also returns `401`, `onUnauthorized()` fires
+   and the auth store flips to `unauthenticated`.
 
-See the two per-platform pattern docs, both of which include exemplar
-file references checked by `make check:skills`:
+Token persistence: `secureTokenStorage` in `mobile/src/api/tokens.ts`.
+Reads + writes are async — there is no synchronous accessor.
 
-- [patterns/ios.md](patterns/ios.md) — SwiftUI, Liquid Glass, `TabView`,
-  `@Observable`, Swift Testing.
-- [patterns/android.md](patterns/android.md) — Jetpack Compose,
-  Material 3, `NavigationSuiteScaffold`, `StateFlow`, Compose UI tests.
+## Magic-link deep linking
 
-## Testing
+1. User taps the magic link in their email (Mailpit during dev).
+2. The OS hands `initium://auth/verify?token=…` to the Expo app.
+3. Expo Router maps the path to `mobile/app/auth/verify.tsx` <!-- expect: useLocalSearchParams -->,
+   which reads `?token=` via `useLocalSearchParams`.
+4. The component calls `useAuth().verifyMagicLink(token)`, which POSTs
+   `{token}` to `/api/auth/mobile/verify` and stores the returned
+   `TokenPair` via `secureTokenStorage`.
+5. On success the store transitions to `authenticated` and the
+   `<Redirect>` in the verify screen sends the user to `/(tabs)/home`.
 
-Both apps follow the **protocol/interface refactor pattern** so the
-auth state machine is unit-testable without spinning up the real API
-client or token store.
+## Google Sign-In
 
-- **iOS**: `APIClientProtocol` + `TokenStorageProtocol` extracted in
-  `mobile/ios/initium/initium/API/`. `AuthStore` accepts `any
-  APIClientProtocol` and `any TokenStorageProtocol`. Tests use
-  `MockAPIClient` + `MockTokenStorage` from
-  `initiumTests/MockAPIClient.swift` <!-- expect: MockAPIClient -->.
-  Run with `make test:ios` or `make test:ios:coverage`.
-- **Android**: `ApiClient` + `TokenStorage` interfaces in
-  `mobile/android/app/src/main/java/com/example/initium/api/`. The
-  concrete class for the network client is `OkHttpApiClient`; the
-  concrete token store remains `TokenStore` (now implements the
-  interface). `AuthViewModel` accepts both interfaces. Tests use
-  `FakeApiClient` + `FakeTokenStore` from
-  `app/src/test/java/com/example/initium/api/FakeApiClient.kt` <!-- expect: FakeApiClient -->.
-  ApiClient tests use `MockWebServer` (no Robolectric needed). Run
-  with `make test:android` or `make test:android:coverage`
-  (Jacoco; 25% line floor, ramps to 80% in follow-ups).
-- Coverage gates are mobile-side only (not in `make preflight`)
-  because Xcode + Android SDK aren't guaranteed in every dev
-  environment. Run them when touching the mobile apps before merging.
+`mobile/app/login.tsx` uses `Google.useAuthRequest()` from
+`expo-auth-session/providers/google`. Three OAuth client IDs are
+required (`EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`,
+`EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID`,
+`EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`) — provision them in Google Cloud
+Console. When unset, the button shows a "configure GOOGLE_*_CLIENT_ID
+to enable" hint. On success, the `id_token` POSTs to
+`/api/auth/mobile/google`.
+
+## Testing convention
+
+`mobile/__tests__/` holds Jest specs. The auth store at
+`mobile/src/auth/store.ts` <!-- expect: create --> is testable by
+calling `useAuthStore.getState()` directly and mocking `global.fetch`.
+The `expo-secure-store` mock in `mobile/jest.setup.ts` keeps tokens in
+process memory across the test run, so writes from one test do not
+leak into the next (call `tokens.clear()` in `beforeEach`).
+
+For network-shape assertions on the API client, inject `fetchImpl` and
+a memory-backed `TokenStorage` directly into the `APIClient` constructor
+— see `mobile/__tests__/client.test.ts` for the pattern. Do not mock
+`expo-secure-store` for client-level tests; pass an in-memory storage
+implementation instead.
 
 ## Canonical exemplars
 
-Cross-platform (paths apply to both apps equally):
-
+- API client (single-flight refresh): `mobile/src/api/client.ts`
+- Token storage wrapper: `mobile/src/api/tokens.ts`
+- Auth store: `mobile/src/auth/store.ts`
+- Magic-link deep-link target: `mobile/app/auth/verify.tsx`
+- Login screen (Google + magic link): `mobile/app/login.tsx`
+- Tabbed shell: `mobile/app/(tabs)/_layout.tsx`
+- Profile screen (mirrors web `/home`): `mobile/app/(tabs)/home.tsx`
 - Parity rule: `.claude/skills/_shared/parity.md`
 - Mobile-wide agent doc: `mobile/AGENTS.md`
 
-Auth state machines (protocol-injection ready):
-
-- iOS: `mobile/ios/initium/initium/Auth/AuthStore.swift` <!-- expect: AuthStore -->
-- Android: `mobile/android/app/src/main/java/com/example/initium/auth/AuthViewModel.kt` <!-- expect: AuthViewModel -->
-
-Platform-specific exemplars live in the platform pattern docs.
+Platform-specific patterns (Expo Router, NativeWind, SecureStore,
+Jest setup) live in [patterns/expo.md](patterns/expo.md).

@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Initium",
+    "slug": "initium",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "initium",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.initium.app",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.initium.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

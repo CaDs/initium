@@ -16,19 +16,17 @@ An opinionated full-stack starter template for experimenting with new ideas with
 |-----------|-----------|
 | Backend | Go (chi + GORM + PostgreSQL) |
 | Frontend | Next.js (App Router, TypeScript, Tailwind) |
-| Mobile — iOS | SwiftUI, Liquid Glass (opt-in, iOS 26+), deployment target iOS 17 |
-| Mobile — Android | Jetpack Compose + Material 3, Kotlin 2.2.x, minSdk 24 |
+| Mobile | Expo (React Native + TypeScript, NativeWind, Expo Router) |
 | Infra | Docker Compose (PostgreSQL + Mailpit) |
 
 ## Quick Start
 
 ```bash
 # Prerequisites: Go 1.23+, Node 20+, Docker
-# iOS build requires Xcode 26+
-# Android build requires Android Studio + JDK 17+
 # Install golang-migrate: brew install golang-migrate
+# Mobile dev loop uses Expo Go on a real device — no Xcode or Android Studio required
 
-make setup    # Starts infra, installs deps, runs migrations, generates JWT keys
+make setup    # Starts infra, installs deps (backend, web, mobile), runs migrations, generates JWT keys
 make dev      # Starts backend (8000) + web (3000)
 ```
 
@@ -53,7 +51,7 @@ Every POC needs the same boring foundation. Initium provides it so you can focus
 - **Authenticated home** — protected dashboard, ready to customize
 - **Session management** — short-lived JWTs + refresh token rotation, backend-owned
 - **API spec** — OpenAPI 3.1 as the canonical contract
-- **Native mobile scaffolding** — iOS (SwiftUI) + Android (Compose) each ship a 3-tab shell ready to extend (auth / API / i18n deferred)
+- **Mobile (Expo) scaffolding** — single Expo + React Native app ships an auth-gated 3-tab shell (Home / Main / Settings) with magic-link + Google sign-in working against the backend
 - **Dev tools** — hot reload, Docker infra, Mailpit for email testing, Makefile for everything
 
 ## Project Structure
@@ -62,9 +60,9 @@ Every POC needs the same boring foundation. Initium provides it so you can focus
 initium/
 ├── backend/                  # Go API server
 ├── web/                      # Next.js frontend
-├── mobile/                   # Native iOS + Android apps
-│   ├── ios/initium/          #   SwiftUI + Liquid Glass (Xcode project)
-│   └── android/              #   Jetpack Compose + Material 3 (Gradle project)
+├── mobile/                   # Expo (React Native + TypeScript) app
+│   ├── app/                  #   Expo Router routes (file-based)
+│   └── src/                  #   API client, auth store, UI primitives
 ├── .claude/skills/           # Agent guidance (initium-{backend,web,mobile})
 ├── docker-compose.yml
 ├── Makefile                  # All dev commands (make help)
@@ -103,31 +101,22 @@ make test:web         # Run tests
 make lint:web         # Lint
 ```
 
-### Mobile — iOS (SwiftUI)
+### Mobile (Expo)
 
 ```bash
-make dev:ios                      # Build + launch on simulator (boots one if needed)
-make test:ios                     # Swift Testing (xcodebuild test)
-make build:ios                    # Debug build for simulator
-make dev:ios IOS_SIM='iPhone 17'  # Override the simulator destination
+make dev:mobile                   # Metro + QR for Expo Go (scan with a real device)
+make dev:mobile:ios               # Auto-launch the iOS simulator (Xcode required)
+make dev:mobile:android           # Auto-launch a connected Android emulator
+make test:mobile                  # Jest suite
+make lint:mobile                  # ESLint + tsc --noEmit
+make build:mobile                 # Static export under mobile/dist
 ```
 
-Requires Xcode 26+. See `mobile/ios/AGENTS.md` for conventions and
-`.claude/skills/initium-mobile/patterns/ios.md` for exemplars.
-
-### Mobile — Android (Jetpack Compose)
-
-```bash
-make dev:android                  # Install + launch the debug APK on running device/emulator
-make test:android                 # JVM unit tests (./gradlew test)
-make test:android:instrumented    # Compose UI tests (needs running device)
-make build:android                # Debug APK
-make lint:android                 # Android Lint (./gradlew lint)
-```
-
-Requires Android Studio + JDK 17+. See `mobile/android/AGENTS.md` for
-conventions and `.claude/skills/initium-mobile/patterns/android.md` for
-exemplars.
+The dev loop targets Expo Go for the fastest POC iteration — no Xcode
+or Android Studio required. See `mobile/AGENTS.md` for cross-stack
+rules and `.claude/skills/initium-mobile/patterns/expo.md` for
+exemplars. EAS Build profiles are scaffolded in `mobile/eas.json` for
+when a fork wants standalone signed builds.
 
 ### Pre-PR
 
@@ -135,10 +124,10 @@ exemplars.
 make preflight        # lint + test + check:parity + check:skills + check:staged
 ```
 
-`make preflight` does NOT run native mobile tests — those need Xcode or
-Android Studio which aren't guaranteed in every environment. Run
-`make test:ios` and `make test:android` explicitly when you've touched
-`mobile/`.
+`make preflight` runs lint + tests + coverage gates for backend, web,
+**and mobile** in pure Node / Go — no Xcode, no Android Studio. Use
+the QR-driven dev loop on a real device for end-to-end verification of
+mobile changes.
 
 ## Architecture
 
@@ -162,10 +151,10 @@ one based on which paths they're editing. See `AGENTS.md` for the map.
 - **No passwords** — Google OAuth + magic links only
 - Backend owns session state (JWTs + refresh tokens in PostgreSQL)
 - Web: httpOnly cookies set by backend
-- Native mobile: auth is **deferred** (tokens will land in Keychain on iOS
-  / EncryptedSharedPreferences on Android when wired). The
-  `/api/auth/mobile/*` endpoints exist on the backend and are excluded
-  from the parity gate until then.
+- Mobile (Expo): tokens stored in `expo-secure-store` (Keychain on
+  iOS, EncryptedSharedPreferences on Android). Google ID tokens come
+  from `expo-auth-session/providers/google`. Magic links arrive via
+  the `initium://auth/verify?token=…` deep link.
 - Magic links are single-use (enforced via DB)
 - Refresh token rotation on every refresh
 
