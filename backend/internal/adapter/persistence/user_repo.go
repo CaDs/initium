@@ -5,60 +5,64 @@ import (
 	"errors"
 	"fmt"
 
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/eridia/initium/backend/internal/adapter/persistence/db"
 	"github.com/eridia/initium/backend/internal/domain"
 )
 
-// GormUserRepo implements domain.UserRepository using GORM.
-type GormUserRepo struct {
-	db *gorm.DB
+// UserRepo implements domain.UserRepository using sqlc-generated queries.
+type UserRepo struct {
+	q *db.Queries
 }
 
-// NewGormUserRepo creates a new GORM-backed user repository.
-func NewGormUserRepo(db *gorm.DB) *GormUserRepo {
-	return &GormUserRepo{db: db}
+// NewUserRepo creates a new sqlc-backed user repository.
+func NewUserRepo(q *db.Queries) *UserRepo {
+	return &UserRepo{q: q}
 }
 
-func (r *GormUserRepo) FindByID(ctx context.Context, id string) (*domain.User, error) {
-	var m UserModel
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+func (r *UserRepo) FindByID(ctx context.Context, id string) (*domain.User, error) {
+	m, err := r.q.GetUserByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("querying user by id: %w", err)
 	}
-	return m.ToDomain(), nil
+	return userToDomain(m), nil
 }
 
-func (r *GormUserRepo) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
-	var m UserModel
-	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&m).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+func (r *UserRepo) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	m, err := r.q.GetUserByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrUserNotFound
 		}
 		return nil, fmt.Errorf("querying user by email: %w", err)
 	}
-	return m.ToDomain(), nil
+	return userToDomain(m), nil
 }
 
-func (r *GormUserRepo) Create(ctx context.Context, user *domain.User) error {
-	m := UserModelFromDomain(user)
-	if err := r.db.WithContext(ctx).Create(m).Error; err != nil {
+func (r *UserRepo) Create(ctx context.Context, user *domain.User) error {
+	m, err := r.q.CreateUser(ctx, db.CreateUserParams{
+		Email:        user.Email,
+		Name:         user.Name,
+		AvatarUrl:    avatarPtr(user.AvatarURL),
+		AuthProvider: user.AuthProvider,
+	})
+	if err != nil {
 		return fmt.Errorf("creating user: %w", err)
 	}
-	user.ID = m.ID
-	user.CreatedAt = m.CreatedAt
-	user.UpdatedAt = m.UpdatedAt
+	*user = *userToDomain(m)
 	return nil
 }
 
-func (r *GormUserRepo) Update(ctx context.Context, user *domain.User) error {
-	if err := r.db.WithContext(ctx).Model(&UserModel{ID: user.ID}).
-		Updates(map[string]any{
-			"name":       user.Name,
-			"avatar_url": user.AvatarURL,
-		}).Error; err != nil {
+func (r *UserRepo) Update(ctx context.Context, user *domain.User) error {
+	if _, err := r.q.UpdateUser(ctx, db.UpdateUserParams{
+		ID:        user.ID,
+		Name:      user.Name,
+		AvatarUrl: avatarPtr(user.AvatarURL),
+	}); err != nil {
 		return fmt.Errorf("updating user: %w", err)
 	}
 	return nil

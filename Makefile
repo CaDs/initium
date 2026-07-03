@@ -35,7 +35,7 @@ OPENSSL := $(shell which /opt/homebrew/opt/openssl/bin/openssl 2>/dev/null || wh
         setup keygen clobber \
         infra\:up infra\:down infra\:reset logs logs\:db logs\:mail status \
         db\:migrate db\:rollback db\:reset db\:create db\:psql \
-        gen gen\:openapi \
+        gen gen\:openapi gen\:sqlc \
         test test\:backend test\:backend\:coverage test\:web test\:web\:coverage test\:mobile test\:mobile\:coverage test\:contract test\:all \
         lint lint\:backend lint\:web lint\:mobile typecheck\:mobile \
         format format\:backend format\:web format\:mobile \
@@ -135,11 +135,14 @@ db\:psql: ## Open psql against the dev database
 ## group: gen
 # ============================================================================
 
-gen: gen\:openapi ## Run all codegen (currently just gen:openapi)
+gen: gen\:openapi gen\:sqlc ## Run all codegen (OpenAPI spec + sqlc queries)
 
 gen\:openapi: ## Export Huma's in-memory spec to backend/api/openapi.yaml + regen web TS types. Required because preflight runs without a server, and codegen + check:parity read the on-disk file.
 	cd $(BACKEND_DIR) && go run ./cmd/gen-openapi
 	cd $(WEB_DIR) && npx openapi-typescript ../backend/api/openapi.yaml -o src/lib/api-types.ts
+
+gen\:sqlc: ## Regenerate typed query code from backend/internal/adapter/persistence/query/*.sql (reads sqlc.yaml). Install: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+	cd $(BACKEND_DIR) && sqlc generate
 
 # ============================================================================
 ## group: test

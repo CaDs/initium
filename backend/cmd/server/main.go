@@ -10,6 +10,7 @@ import (
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
 	"github.com/eridia/initium/backend/internal/adapter/persistence"
+	persistencedb "github.com/eridia/initium/backend/internal/adapter/persistence/db"
 	"github.com/eridia/initium/backend/internal/app"
 	"github.com/eridia/initium/backend/internal/infra"
 	"github.com/eridia/initium/backend/internal/infra/config"
@@ -34,11 +35,12 @@ func main() {
 	}
 
 	// Database
-	db, err := database.NewPostgresDB(cfg.DatabaseDSN())
+	pool, err := database.NewPostgresPool(context.Background(), cfg.DatabaseDSN())
 	if err != nil {
 		slog.Error("connecting to database", "error", err)
 		os.Exit(1)
 	}
+	defer pool.Close()
 
 	if err := database.RunMigrations(cfg.DatabaseURL(), "file://migrations"); err != nil {
 		slog.Error("running migrations", "error", err)
@@ -65,8 +67,9 @@ func main() {
 	emailSender := email.NewAsyncSender(workerPool, smtpSender)
 
 	// Repositories
-	userRepo := persistence.NewGormUserRepo(db)
-	sessionRepo := persistence.NewGormSessionRepo(db)
+	queries := persistencedb.New(pool)
+	userRepo := persistence.NewUserRepo(queries)
+	sessionRepo := persistence.NewSessionRepo(queries)
 
 	// Services
 	authService := service.NewAuthService(userRepo, sessionRepo, oauthVerifier, emailSender, tokenGen)
@@ -105,7 +108,7 @@ func main() {
 		User:       userHandler,
 		TokenGen:   tokenGen,
 		RoleLookup: roleLookup,
-		DB:         db,
+		DB:         pool,
 		AppEnv:     cfg.AppEnv,
 		AppURL:     cfg.AppURL,
 		DevBypass:  cfg.DevBypassAuth,
