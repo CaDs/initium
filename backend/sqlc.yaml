@@ -1,0 +1,33 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    # Schema is the same numbered migration files golang-migrate applies at
+    # runtime — sqlc parses them to learn column types. Keep queries and
+    # migrations in lockstep: add the migration first, then the query.
+    schema: "migrations"
+    queries: "internal/adapter/persistence/query"
+    gen:
+      go:
+        package: "db"
+        out: "internal/adapter/persistence/db"
+        sql_package: "pgx/v5"
+        emit_interface: true
+        overrides:
+          # Domain entities use plain Go types (string IDs, *time.Time for
+          # nullable timestamps). Override sqlc's pgx defaults so the
+          # generated row structs map to domain with trivial helpers.
+          - db_type: "uuid"
+            go_type: "string"
+          - db_type: "timestamptz"
+            go_type: "time.Time"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "time"
+              type: "Time"
+              pointer: true
+          - db_type: "text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true

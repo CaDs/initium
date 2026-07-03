@@ -43,9 +43,10 @@ internal/service/         Business logic implementing domain interfaces.
 internal/adapter/handler/ Huma handlers + chi-native handlers.
                           Imports domain + service + infra types as needed.
 internal/adapter/middleware/   auth, request ID, access log (chi style).
-internal/adapter/persistence/  GORM models + mappers + repo implementations.
-                               Hand-written GORM structs in models.go with
-                               toDomain()/fromDomain() helpers.
+internal/adapter/persistence/  sqlc-generated queries (db/) + mappers + repo
+                               implementations. Hand-written .sql queries under
+                               query/ generate typed Go in db/; repos wrap
+                               db.Queries and map rows to domain in models.go.
 internal/infra/           Config, DB setup, JWT, OAuth, email. Outermost.
 internal/app/             Router builder + Huma API constructor. Keeps
                           cmd/server thin so cmd/gen-openapi can build the
@@ -67,7 +68,8 @@ domain + service. Infra is the outermost ring.
 | Domain error sentinel | `Err` prefix, `PascalCase` | `domain.ErrUserNotFound` |
 | Error code (wire) | `SNAKE_UPPER` | `"USER_NOT_FOUND"` |
 | Repo interface | `<Entity>Repository` in domain | `domain.UserRepository` |
-| Repo impl | `Gorm<Entity>Repo` in persistence | `persistence.GormUserRepo` |
+| Repo impl | `<Entity>Repo` in persistence | `persistence.UserRepo` |
+| sqlc query | `PascalCase` verb in `query/*.sql` | `GetUserByID`, `CreateSession` |
 | Service interface | `<Name>Service` in domain | `domain.AuthService` |
 | Service impl | `<Name>Service` struct in service | `service.AuthService` |
 | Handler | `<Feature>Handler` in handler | `handler.AuthHandler` |
@@ -238,7 +240,10 @@ byte streaming via `huma.StreamResponse` works too. See
 - Error envelope override: `backend/internal/adapter/handler/errs.go` <!-- expect: InstallErrorEnvelope -->
 - Error envelope test: `backend/internal/adapter/handler/error_envelope_test.go` <!-- expect: TestError_EnvelopeShape -->
 - Handler test (humatest): `backend/internal/adapter/handler/mobile_auth_test.go` <!-- expect: humatest.New -->
-- Repo: `backend/internal/adapter/persistence/user_repo.go` <!-- expect: GormUserRepo --> — GORM impl with mappers.
+- Repo: `backend/internal/adapter/persistence/user_repo.go` <!-- expect: UserRepo --> — sqlc-backed impl wrapping `db.Queries`.
+- Queries: `backend/internal/adapter/persistence/query/users.sql` <!-- expect: GetUserByID --> — hand-written SQL, source for `make gen:sqlc`.
+- Row mappers: `backend/internal/adapter/persistence/models.go` <!-- expect: userToDomain --> — sqlc row → domain entity.
+- sqlc config: `backend/sqlc.yaml` <!-- expect: pgx/v5 --> — engine, query dir, type overrides.
 - Migration: `backend/migrations/` — sequential numbered .sql files.
 - Spec generator: `backend/cmd/gen-openapi/main.go` <!-- expect: api.OpenAPI() -->
 

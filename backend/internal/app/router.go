@@ -11,8 +11,8 @@ import (
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/go-chi/httprate"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"gorm.io/gorm"
 
 	"github.com/eridia/initium/backend/internal/adapter/handler"
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
@@ -28,7 +28,7 @@ type RouterDeps struct {
 	User       *handler.UserHandler
 	TokenGen   domain.TokenGenerator
 	RoleLookup func(ctx context.Context, userID string) (string, error)
-	DB         *gorm.DB
+	DB         *pgxpool.Pool
 	AppEnv     string
 	AppURL     string
 	DevBypass  bool

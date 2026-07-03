@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
-	"gorm.io/gorm"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/eridia/initium/backend/internal/adapter/middleware"
 	"github.com/eridia/initium/backend/internal/domain"
@@ -322,22 +322,14 @@ func Healthz(w http.ResponseWriter, _ *http.Request) {
 
 // Readyz returns a readiness check that verifies DB connectivity.
 // Returns 200 {"status":"ok"} on success, 503 {"status":"unready","error":"..."} on failure.
-func Readyz(db *gorm.DB) http.HandlerFunc {
+func Readyz(pool *pgxpool.Pool) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
 
 		w.Header().Set("Content-Type", "application/json")
 
-		sqlDB, err := db.DB()
-		if err != nil {
-			slog.Error("readyz: failed to get sql.DB", "error", err)
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"status":"unready","error":"database unavailable"}`))
-			return
-		}
-
-		if err := sqlDB.PingContext(ctx); err != nil {
+		if err := pool.Ping(ctx); err != nil {
 			slog.Error("readyz: database ping failed", "error", err)
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, `{"status":"unready","error":%q}`, err.Error())

@@ -24,7 +24,7 @@ got reverted, but left the volume dirty). Recover with
 ## Read this first, then load your stack skill
 
 ```
-.claude/skills/initium-backend/   — Go + chi + GORM + PostgreSQL
+.claude/skills/initium-backend/   — Go + chi + sqlc + PostgreSQL
 .claude/skills/initium-web/       — Next.js App Router + Server Actions + Zod
 .claude/skills/initium-mobile/    — Expo (React Native + TypeScript) — single codebase, both platforms
 .claude/skills/_shared/parity.md  — the "every feature on web AND mobile" rule

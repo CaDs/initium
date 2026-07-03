@@ -1,29 +1,18 @@
 package persistence
 
 import (
-	"time"
-
+	"github.com/eridia/initium/backend/internal/adapter/persistence/db"
 	"github.com/eridia/initium/backend/internal/domain"
 )
 
-// UserModel is the GORM representation of a user.
-type UserModel struct {
-	ID           string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Email        string `gorm:"uniqueIndex;not null"`
-	Name         string `gorm:"not null;default:''"`
-	AvatarURL    *string
-	AuthProvider string    `gorm:"not null"`
-	Role         string    `gorm:"not null;default:'user'"`
-	CreatedAt    time.Time `gorm:"not null;default:now()"`
-	UpdatedAt    time.Time `gorm:"not null;default:now()"`
-}
+// Mappers from sqlc row structs (backend/internal/adapter/persistence/db) to
+// domain entities. Domain types stay free of persistence concerns — the only
+// impedance is nullable columns, which sqlc emits as pointers.
 
-func (UserModel) TableName() string { return "users" }
-
-func (m *UserModel) ToDomain() *domain.User {
+func userToDomain(m db.User) *domain.User {
 	avatarURL := ""
-	if m.AvatarURL != nil {
-		avatarURL = *m.AvatarURL
+	if m.AvatarUrl != nil {
+		avatarURL = *m.AvatarUrl
 	}
 	return &domain.User{
 		ID:           m.ID,
@@ -37,36 +26,14 @@ func (m *UserModel) ToDomain() *domain.User {
 	}
 }
 
-func UserModelFromDomain(u *domain.User) *UserModel {
-	var avatarURL *string
-	if u.AvatarURL != "" {
-		avatarURL = &u.AvatarURL
+func avatarPtr(avatarURL string) *string {
+	if avatarURL == "" {
+		return nil
 	}
-	return &UserModel{
-		ID:           u.ID,
-		Email:        u.Email,
-		Name:         u.Name,
-		AvatarURL:    avatarURL,
-		AuthProvider: u.AuthProvider,
-		Role:         u.Role,
-		CreatedAt:    u.CreatedAt,
-		UpdatedAt:    u.UpdatedAt,
-	}
+	return &avatarURL
 }
 
-// SessionModel is the GORM representation of a session.
-type SessionModel struct {
-	ID               string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	UserID           string    `gorm:"type:uuid;not null;index"`
-	RefreshTokenHash string    `gorm:"uniqueIndex;not null"`
-	ExpiresAt        time.Time `gorm:"not null"`
-	RevokedAt        *time.Time
-	CreatedAt        time.Time `gorm:"not null;default:now()"`
-}
-
-func (SessionModel) TableName() string { return "sessions" }
-
-func (m *SessionModel) ToDomain() *domain.Session {
+func sessionToDomain(m db.Session) *domain.Session {
 	return &domain.Session{
 		ID:               m.ID,
 		UserID:           m.UserID,
@@ -77,30 +44,7 @@ func (m *SessionModel) ToDomain() *domain.Session {
 	}
 }
 
-func SessionModelFromDomain(s *domain.Session) *SessionModel {
-	return &SessionModel{
-		ID:               s.ID,
-		UserID:           s.UserID,
-		RefreshTokenHash: s.RefreshTokenHash,
-		ExpiresAt:        s.ExpiresAt,
-		RevokedAt:        s.RevokedAt,
-		CreatedAt:        s.CreatedAt,
-	}
-}
-
-// MagicLinkTokenModel is the GORM representation of a magic link token.
-type MagicLinkTokenModel struct {
-	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Email     string    `gorm:"not null"`
-	TokenHash string    `gorm:"uniqueIndex;not null"`
-	ExpiresAt time.Time `gorm:"not null"`
-	UsedAt    *time.Time
-	CreatedAt time.Time `gorm:"not null;default:now()"`
-}
-
-func (MagicLinkTokenModel) TableName() string { return "magic_link_tokens" }
-
-func (m *MagicLinkTokenModel) ToDomain() *domain.MagicLinkToken {
+func magicLinkTokenToDomain(m db.MagicLinkToken) *domain.MagicLinkToken {
 	return &domain.MagicLinkToken{
 		ID:        m.ID,
 		Email:     m.Email,

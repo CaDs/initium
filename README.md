@@ -14,7 +14,7 @@ An opinionated full-stack starter template for experimenting with new ideas with
 
 | Component | Technology |
 |-----------|-----------|
-| Backend | Go (chi + GORM + PostgreSQL) |
+| Backend | Go (chi + sqlc + PostgreSQL) |
 | Frontend | Next.js (App Router, TypeScript, Tailwind) |
 | Mobile | Expo (React Native + TypeScript, NativeWind, Expo Router) |
 | Infra | Docker Compose (PostgreSQL + Mailpit) |
