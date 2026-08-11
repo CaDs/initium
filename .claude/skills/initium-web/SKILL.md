@@ -24,8 +24,12 @@ is true:
   (`make check/parity`).
 - An exemplar path cited in this skill no longer contains its
   `<!-- expect: symbol -->` annotation (`make check/skills`).
-- `npm run lint`, `npm run test`, or `npm run build` fails.
+- `make lint/web`, `make test/web/coverage`, or `make build/web` fails.
 - Work remains untracked or unstaged after the run (`make check/staged`).
+
+Web is an npm workspace of the repo root. Install dependencies from the root
+(`npm install` / `make setup`); the root `package-lock.json` is the only
+lockfile — a per-package lockfile under `web/` must not come back.
 
 The Effect Schema boundary is shared in `packages/core`. `apiFetch()` requires
 a schema and maps typed Effect failures to the UI result envelope; do not reach
@@ -128,9 +132,8 @@ handler side. Pair with the backend change, or explicitly defer.
 ## Testing
 
 - Vitest + `@testing-library/react`. Tests in `src/__tests__/`.
-- Phased coverage gate: 25% lines/branches (current 78.84%/71.01%);
-  ramps to 80% in follow-up PRs. Run with `npm run test:coverage`
-  or `make test/web/coverage`.
+- Phased coverage gate: 25% lines/branches (current 75.97%/66.21%);
+  ramps to 80% in follow-up PRs. Run with `make test/web/coverage`.
 - **MSW v2 intercepts every backend call.** Default handlers in
   `src/__tests__/msw/handlers.ts` cover the 9 backend endpoints; per-test
   overrides go through `server.use(http.post(...))`. Setup hooks in

@@ -31,11 +31,52 @@ got reverted, but left the volume dirty). Recover with
 .claude/skills/_shared/parity.md  — the "every feature on web AND mobile" rule
 ```
 
-If you're editing `backend/**`, `packages/core/**`, `web/**`, or `mobile/**`, load the matching
-SKILL.md + its existing `patterns/*.md` before making changes. Everything
+Load the backend skill for `backend/**`, the Effect skill for
+`packages/core/**`, the web skill for `web/**`, and the mobile skill for
+`mobile/**`. When web or mobile work touches API contracts, request handling,
+typed failures, or auth state, load the Effect skill as well. Read the selected
+SKILL.md and its existing `patterns/*.md` before making changes. Everything
 stack-specific lives there. Do not infer conventions from training data.
 
 For mobile, also load `mobile/AGENTS.md` for the cross-stack rules.
+
+## Repository and Effect model
+
+- The root is an npm workspace containing `packages/core`, `web`, and
+  `mobile`. The root `package-lock.json` is the only lockfile; run dependency
+  installation from the repository root.
+- `@initium/core` owns shared Effect Schemas for wire DTOs, compile-time
+  conformance with generated OpenAPI types, tagged failures, and the
+  interruptible HTTP request primitive. Do not put UI, storage, cookies, or
+  framework-specific behavior there.
+- The Go/Huma backend remains the source of truth for API behavior and does
+  not depend on Effect. Never hand-edit
+  `packages/core/src/generated/api-types.ts`; regenerate it with
+  `make gen/openapi`.
+- Expected TypeScript failures belong in Effect's typed error channel. Run
+  Effects only at application boundaries: Next.js actions/routes/components,
+  Expo action atoms/hooks, and tests.
+- Web keeps React and Next.js lifecycle/state primitives. Mobile uses Effect
+  Atom for auth state and workflows. Effect is an explicit boundary and
+  workflow tool, not a blanket replacement for framework APIs.
+
+## Commands and project-local tools
+
+- Make namespaces use `/`, never `:`: for example `make db/migrate`,
+  `make test/web`, and `make dev/mobile/ios`. Colons remain valid inside npm
+  script names such as `test:coverage`.
+- Run `make help` for the supported command inventory. Remove obsolete or
+  no-op targets instead of keeping compatibility aliases.
+- `make setup` installs root workspace dependencies, starts infrastructure,
+  ensures JWT keys exist, waits for PostgreSQL, and applies migrations.
+- Go development tools are pinned and built into ignored `backend/bin/`.
+  Targets build their required tool lazily; `make tools` provisions all of
+  them. Do not require a globally installed `migrate`, Air, sqlc, or
+  golangci-lint.
+- `make keygen` is idempotent and must not overwrite an existing JWT keypair.
+- Run `make test/contract` only against a backend started with
+  `DEV_BYPASS_AUTH=false`; the contract suite intentionally exercises auth
+  failures.
 
 ## Agent-first principles
 
@@ -57,8 +98,8 @@ CI. Run the full gate before committing:
 make preflight
 ```
 
-Which runs, in order: `lint` → coverage → `check/parity` → `check/skills`
-→ `check/staged`. A green preflight means:
+Which runs, in order: `lint` → coverage → generated-artifact drift →
+`check/parity` → `check/skills` → `check/staged`. A green preflight means:
 - Every chi route has a corresponding OpenAPI path and vice versa
   (`backend/internal/app/contract_test.go`).
 - Every `/api/*` spec path has a consumer in at least one of

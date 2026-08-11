@@ -245,7 +245,7 @@ byte streaming via `huma.StreamResponse` works too. See
 - Migration: `backend/migrations/` — sequential numbered .sql files.
 - Spec generator: `backend/cmd/gen-openapi/main.go` <!-- expect: api.OpenAPI() -->
 
-See also: `patterns/handler.md`, `patterns/service.md`, `patterns/migration.md`, `patterns/test.md`, `patterns/feature-crud.md`.
+See also: `patterns/migration.md`.
 
 ## Parity
 
