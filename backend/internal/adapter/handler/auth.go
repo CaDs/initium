@@ -50,8 +50,11 @@ type messageOutput struct {
 }
 
 type refreshInput struct {
-	RefreshTokenCookie string `cookie:"refresh_token" doc:"Refresh token (web cookie path /api/auth)"`
-	Body               struct {
+	RefreshTokenCookie string `cookie:"refresh_token" doc:"Refresh token (web cookie, path /)"`
+	// Body is a POINTER so Huma treats it as optional: the web silent
+	// refresh sends the token as a cookie with NO body, and a required
+	// body would 400 before the handler ever reads the cookie.
+	Body *struct {
 		RefreshToken string `json:"refresh_token,omitempty" doc:"Refresh token (mobile JSON body)"`
 	}
 }
@@ -119,7 +122,7 @@ func (h *AuthHandler) requestMagicLink(ctx context.Context, in *magicLinkInput) 
 
 func (h *AuthHandler) refreshTokens(ctx context.Context, in *refreshInput) (*tokenPairOutput, error) {
 	refreshToken := in.RefreshTokenCookie
-	if refreshToken == "" {
+	if refreshToken == "" && in.Body != nil {
 		refreshToken = in.Body.RefreshToken
 	}
 	if refreshToken == "" {
@@ -261,18 +264,25 @@ func (h *AuthHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) tokenCookies(pair *domain.TokenPair) []http.Cookie {
 	return []http.Cookie{
 		{
-			Name:     "access_token",
-			Value:    pair.AccessToken,
-			Path:     "/",
-			MaxAge:   900,
+			Name:  "access_token",
+			Value: pair.AccessToken,
+			Path:  "/",
+			// One hour SHORTER than the 24h JWT: the cookie must die
+			// before the token so expiry always routes through the web
+			// middleware (which can persist the rotated pair) instead of
+			// a render-context refresh that can't set cookies.
+			MaxAge:   82800,
 			HttpOnly: true,
 			Secure:   h.secureCookies,
 			SameSite: http.SameSiteLaxMode,
 		},
 		{
-			Name:     "refresh_token",
-			Value:    pair.RefreshToken,
-			Path:     "/api/auth",
+			Name:  "refresh_token",
+			Value: pair.RefreshToken,
+			// Path "/" — the web middleware reads this cookie on PAGE
+			// routes to silently refresh; scoped to /api/auth the browser
+			// never sends it there and sessions die at access expiry.
+			Path:     "/",
 			MaxAge:   604800,
 			HttpOnly: true,
 			Secure:   h.secureCookies,
@@ -287,6 +297,9 @@ func (h *AuthHandler) tokenCookies(pair *domain.TokenPair) []http.Cookie {
 // not mutate the returned slice.
 var clearedCookieJar = []http.Cookie{
 	{Name: "access_token", Value: "", Path: "/", MaxAge: -1},
+	{Name: "refresh_token", Value: "", Path: "/", MaxAge: -1},
+	// Also clear any legacy /api/auth-scoped refresh cookie from before
+	// the path fix, so stale copies can't shadow the new one.
 	{Name: "refresh_token", Value: "", Path: "/api/auth", MaxAge: -1},
 }
 

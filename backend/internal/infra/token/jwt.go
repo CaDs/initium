@@ -13,7 +13,10 @@ import (
 )
 
 const (
-	accessTokenExpiry  = 15 * time.Minute
+	// 24h: trades revocation latency for far fewer refresh cycles;
+	// refresh rotation still bounds the session and logout still revokes.
+	// The web access COOKIE is 23h so expiry routes through middleware.
+	accessTokenExpiry  = 24 * time.Hour
 	refreshTokenLength = 32
 )
 

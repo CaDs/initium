@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 describe("setTokenCookies", () => {
-  it("writes access_token (path /) + refresh_token (path /api/auth) with httpOnly + Lax", async () => {
+  it("writes access_token (path /) + refresh_token (path /) with httpOnly + Lax", async () => {
     const { setTokenCookies } = await import("@/lib/session");
     await setTokenCookies("ACCESS", "REFRESH");
 
@@ -69,11 +69,11 @@ describe("setTokenCookies", () => {
     expect(access?.opts.httpOnly).toBe(true);
     expect(access?.opts.sameSite).toBe("lax");
     expect(access?.opts.path).toBe("/");
-    expect(access?.opts.maxAge).toBe(900);
+    expect(access?.opts.maxAge).toBe(82800);
 
     expect(refresh).toBeDefined();
     expect(refresh?.value).toBe("REFRESH");
-    expect(refresh?.opts.path).toBe("/api/auth");
+    expect(refresh?.opts.path).toBe("/");
     expect(refresh?.opts.maxAge).toBe(604800);
   });
 });
@@ -87,7 +87,7 @@ describe("clearTokenCookies", () => {
     expect(calls).toContainEqual({
       kind: "delete-with-opts",
       name: "refresh_token",
-      path: "/api/auth",
+      path: "/",
     });
   });
 });

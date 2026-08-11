@@ -12,11 +12,18 @@ import (
 
 const claimSessionByRefreshTokenHash = `-- name: ClaimSessionByRefreshTokenHash :one
 UPDATE sessions
-SET revoked_at = now()
-WHERE refresh_token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
+SET revoked_at = COALESCE(revoked_at, now())
+WHERE refresh_token_hash = $1
+  AND (revoked_at IS NULL OR revoked_at > now() - interval '60 seconds')
+  AND expires_at > now()
 RETURNING id, user_id, refresh_token_hash, expires_at, revoked_at, created_at
 `
 
+// Reuse-grace rotation: a claim within 60s of revocation still succeeds, so
+// web clients that legitimately race refreshes (per-request middleware,
+// parallel tabs, prefetches) don't log the race loser out. COALESCE keeps
+// the original revocation anchor so re-claims can never extend the window.
+// Theft reuse-detection still applies beyond the grace (Auth0-style).
 func (q *Queries) ClaimSessionByRefreshTokenHash(ctx context.Context, refreshTokenHash string) (Session, error) {
 	row := q.db.QueryRow(ctx, claimSessionByRefreshTokenHash, refreshTokenHash)
 	var i Session

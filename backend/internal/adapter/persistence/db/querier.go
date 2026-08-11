@@ -9,6 +9,11 @@ import (
 )
 
 type Querier interface {
+	// Reuse-grace rotation: a claim within 60s of revocation still succeeds, so
+	// web clients that legitimately race refreshes (per-request middleware,
+	// parallel tabs, prefetches) don't log the race loser out. COALESCE keeps
+	// the original revocation anchor so re-claims can never extend the window.
+	// Theft reuse-detection still applies beyond the grace (Auth0-style).
 	ClaimSessionByRefreshTokenHash(ctx context.Context, refreshTokenHash string) (Session, error)
 	CreateMagicLinkToken(ctx context.Context, arg CreateMagicLinkTokenParams) (MagicLinkToken, error)
 	CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error)
