@@ -12,7 +12,7 @@ import (
 
 // APIError is the wire-shape error envelope returned to clients. Matches
 // the existing ErrorResponse schema (code, message, request_id) verbatim
-// so web Zod schemas, iOS Codable, and Android Moshi keep parsing without
+// so the shared Effect Schemas in packages/core keep parsing without
 // changes after the Huma migration.
 //
 // Implements huma.StatusError. When a Huma handler returns

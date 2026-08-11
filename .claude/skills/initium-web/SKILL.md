@@ -50,7 +50,6 @@ src/lib/
   api.ts              apiFetch() — server-side Effect boundary: base URL,
                       cookie forwarding and shared Schema decoding.
   session.ts          httpOnly cookie helpers; hasSession(), getAccessToken().
-  types.ts            Compatibility type re-exports from @initium/core.
 middleware.ts         Cookie-existence guard + refresh on access_token miss.
 src/i18n/request.ts   next-intl setup; reads cookie locale.
 messages/{en,es,ja}.json  Translations. Add keys to ALL three.

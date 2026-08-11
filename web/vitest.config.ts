@@ -16,7 +16,6 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       exclude: [
         "src/__tests__/**",
-        "src/lib/api-types.ts", // generated from openapi.yaml
         "src/**/*.d.ts",
         "src/i18n/**",
         "src/app/**/layout.tsx",

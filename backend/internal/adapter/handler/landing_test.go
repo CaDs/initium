@@ -15,8 +15,8 @@ import (
 // landing_test.go is a JSON-shape smoke test. The handler returns a
 // constant struct, so there's nothing to mock — the value of the test
 // is asserting the wire shape stays stable. If anyone accidentally
-// renames a field or drops one, web Zod schemas / mobile DTOs would
-// break and this test fails first.
+// renames a field or drops one, the shared Effect Schemas would break
+// and this test fails first.
 
 func TestRegisterLanding_GET_Returns200_AndExpectedShape(t *testing.T) {
 	t.Parallel()
