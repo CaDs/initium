@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # routes.sh — curl /_debug/routes on the running backend and pretty-print.
-# Requires `make dev:backend` (or `make dev`) to be running.
+# Requires `make dev/backend` (or `make dev`) to be running.
 
 set -euo pipefail
 
@@ -9,7 +9,7 @@ ENDPOINT="$BACKEND_URL/_debug/routes"
 
 if ! response=$(curl -fsS "$ENDPOINT" 2>/dev/null); then
   echo "Failed to reach $ENDPOINT." >&2
-  echo "Is the backend running? Try 'make dev:backend'." >&2
+  echo "Is the backend running? Try 'make dev/backend'." >&2
   exit 1
 fi
 

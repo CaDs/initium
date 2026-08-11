@@ -2,32 +2,25 @@
 
 The Go handlers are the source of truth for the API contract. Huma
 (https://huma.rocks/) generates `backend/api/openapi.yaml` from the
-typed handler signatures. Downstream tools (web TypeScript codegen,
-mobile codegen once it lands) consume the generated spec — never
-hand-edited.
+typed handler signatures. The shared TypeScript core consumes that generated
+spec, and both clients consume the shared core — never hand-edit generated
+artifacts.
 
 ## Generators
 
 | Client            | Approach                       | Output                                  | Source of truth for... |
 |-------------------|--------------------------------|-----------------------------------------|------------------------|
 | Backend           | Code-first via Huma            | `backend/api/openapi.yaml` (generated)  | API contract — single source of truth |
-| Web               | `openapi-typescript`           | `web/src/lib/api-types.ts`              | TypeScript types (Zod still runtime-validates) |
-| Mobile (Expo)     | hand-written                   | `mobile/src/api/models.ts`              | TypeScript DTOs; codegen via `openapi-typescript` is deferred until a feature proves it worth wiring |
+| Shared TS core    | `openapi-typescript` + Effect Schema | `packages/core/src/generated/api-types.ts` + `contracts.ts` | Compile-time types and runtime decoding for web/mobile |
 
 Backend domain entities in `backend/internal/domain/` remain
 **hand-written**. Handler-level wire types live in
 `backend/internal/adapter/handler/types.go`. Per-handler input/output
 structs live in the handler files themselves with Huma struct tags.
 
-### Why mobile codegen is deferred
-
-The Expo app at `mobile/` consumes the spec via hand-written DTOs in
-`mobile/src/api/models.ts`. Wiring `openapi-typescript` would add a
-codegen step + generated-code diffs in every API PR; for a starter
-template that's net-negative until there's a real surface area to
-cover. Pair the first networked feature where parity drift becomes
-painful with the `openapi-typescript --output mobile/src/api/spec.ts`
-plumbing.
+`packages/core/src/conformance.ts` checks both assignability directions between
+Effect-inferred types and generated OpenAPI types. A mismatch fails core
+typechecking before either client can consume a drifted contract.
 
 ## Workflow
 
@@ -35,21 +28,22 @@ plumbing.
 # 1. Edit the handler types + huma.Operation in Go.
 $EDITOR backend/internal/adapter/handler/foo.go
 
-# 2. Regenerate the on-disk spec + web TypeScript types.
-make gen:openapi
+# 2. Regenerate the on-disk spec + shared TypeScript types.
+make gen/openapi
 
 # 3. Verify everything is in sync (also runs in `make preflight`).
-make check:parity
+make check/parity
 
 # 4. Commit the regenerated artifacts alongside your handler.
 git add backend/api/openapi.yaml \
-        web/src/lib/api-types.ts \
+        packages/core/src/generated/api-types.ts \
+        packages/core/src/contracts.ts \
         backend/internal/adapter/handler/foo.go
 git commit -m "feat(api): <your change>"
 ```
 
 If you forget step 2, the gen-drift step in `scripts/preflight.sh`
-fails the PR with a "run `make gen:openapi`" hint.
+fails the PR with a "run `make gen/openapi`" hint.
 
 ## Rules
 
@@ -64,8 +58,8 @@ fails the PR with a "run `make gen:openapi`" hint.
   `InstallErrorEnvelope()` so synthesized errors (validation failures,
   malformed body) use the same envelope.
 - **List endpoints use envelope schemas**, not bare arrays. A list
-  response is `{"resource_name": [...]}`. Bare-array responses break
-  every client's Zod mapper.
+  response is `{"resource_name": [...]}`. Bare arrays make schema evolution
+  and client decoding brittle.
 - **Non-JSON responses stay chi-native.** OAuth 307 redirects + magic
   link verify are not in `openapi.yaml`. Their handlers live in
   `handler/auth.go` as `http.HandlerFunc`s and register directly on
@@ -119,9 +113,8 @@ the live chi route table; `make routes` curls and pretty-prints it.
 4. Wire `RegisterFoo` from `internal/app/router.go` AND from
    `cmd/gen-openapi/main.go` so the operation appears in the
    generated spec.
-5. `make gen:openapi` to update `backend/api/openapi.yaml` +
-   `web/src/lib/api-types.ts`.
-6. Add a web (Zod) consumer or a mobile consumer (mirror the DTO in
-   `mobile/src/api/models.ts` and add the endpoint helper in
-   `mobile/src/api/endpoints.ts`); `make check:parity` fails otherwise.
+5. `make gen/openapi` to update `backend/api/openapi.yaml` +
+   `packages/core/src/generated/api-types.ts`.
+6. Add the Effect Schema + conformance assertion, then add web/mobile endpoint
+   consumers; `make check/parity` fails if no surface references the path.
 7. Commit the handler + regenerated artifacts together.

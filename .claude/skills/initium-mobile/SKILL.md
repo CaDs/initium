@@ -17,9 +17,8 @@ Expo Go (dev) and EAS Build (release).
 - **Router**: Expo Router v4, file-based, typed routes (`experiments.typedRoutes: true`).
 - **Styling**: NativeWind v4 — Tailwind class strings with `className=`.
   Same tokens as `web/src/app/globals.css` so designs port directly.
-- **State**: Zustand. One auth store at `mobile/src/auth/store.ts`. Do
-  not introduce Redux, MobX, Recoil, or React Context for app-wide
-  state.
+- **State**: Effect Atom. Auth workflows and atoms live at
+  `mobile/src/auth/store.ts`; hooks are in `mobile/src/auth/useAuth.ts`.
 - **Secure storage**: `expo-secure-store` (Keychain on iOS,
   EncryptedSharedPreferences on Android).
 - **Google Sign-In**: `expo-auth-session/providers/google` —
@@ -29,7 +28,7 @@ Expo Go (dev) and EAS Build (release).
 - **Testing**: Jest (`jest-expo` preset) + `@testing-library/react-native`.
   Coverage floor 25% lines (enforced in `mobile/jest.config.js`).
 - **Lint**: `eslint-config-expo` + Prettier.
-- **Distribution**: Expo Go for dev (scan QR from `make dev:mobile`).
+- **Distribution**: Expo Go for dev (scan QR from `make dev/mobile`).
   `mobile/eas.json` is scaffolded with `development`/`preview`/`production`
   profiles for when a fork wants standalone builds.
 
@@ -38,16 +37,15 @@ Expo Go (dev) and EAS Build (release).
 Run `make preflight` before committing. It fails if any of the following
 is true:
 
-- Mobile lint or typecheck fails (`make lint:mobile` runs ESLint + `tsc --noEmit`).
-- Mobile tests or coverage fail (`make test:mobile:coverage`, 25% line floor).
+- Mobile lint or typecheck fails (`make lint/mobile` runs ESLint + `tsc --noEmit`).
+- Mobile tests or coverage fail (`make test/mobile/coverage`, 25% line floor).
 - Every `/api/*` spec path is consumed by either `web/src/**` or
-  `mobile/**` (`make check:parity`). The Expo app is a real consumer
+  `mobile/**` (`make check/parity`). The Expo app is a real consumer
   now — `/api/auth/mobile/*` no longer needs an exclusion.
 - Exemplar paths cited in this skill no longer resolve, or an
   `<!-- expect: symbol -->` annotation has gone stale
-  (`make check:skills`).
-- `git status --porcelain` is non-empty after the run
-  (`make check:staged`).
+  (`make check/skills`).
+- Work remains untracked or unstaged after the run (`make check/staged`).
 
 Mobile gates run in pure Node — no Xcode, no Android Studio. Devices
 are only needed for the QR-driven Expo Go dev loop.
@@ -68,13 +66,12 @@ mobile/
 │       └── settings.tsx    logout
 ├── src/
 │   ├── api/
-│   │   ├── client.ts       APIClient — single-flight 401 refresh
+│   │   ├── client.ts       Effect API client — single-flight 401 refresh
 │   │   ├── tokens.ts       SecureStore wrapper
-│   │   ├── models.ts       hand-written DTOs
 │   │   ├── endpoints.ts    one method per /api/* path
 │   │   └── deeplink.ts     parseDeepLink (pure)
 │   ├── auth/
-│   │   ├── store.ts        Zustand auth store
+│   │   ├── store.ts        Effect workflows + auth atoms
 │   │   └── useAuth.ts      selector hooks
 │   ├── ui/LiquidCard.tsx   expo-blur card
 │   └── config.ts           env-driven config (API URL, Google IDs)
@@ -88,10 +85,8 @@ mobile/
   reads "every user-facing feature on web AND mobile". One Expo app
   satisfies both store targets, so a feature lands twice (web + mobile),
   not three times.
-- **Hand-written DTOs.** Mobile uses `mobile/src/api/models.ts` —
-  `openapi-typescript` codegen is deferred until a feature proves it
-  worth wiring. When the spec changes, update the matching DTO
-  manually.
+- **Shared contracts.** Import DTOs and Effect Schemas from `@initium/core`.
+  Generated OpenAPI types and conformance checks live in `packages/core`.
 - **Bundle ID + scheme.** Both platforms use `com.initium.app` with
   scheme `initium://`. Forks rename via `mobile/app.json` (`ios.bundleIdentifier`,
   `android.package`, `scheme`).
@@ -102,7 +97,7 @@ mobile/
 ## What NOT to do
 
 - **Do not introduce React Navigation.** Routing belongs to Expo Router.
-- **Do not hand-roll `fetch`.** Always go through `APIClient.send` so
+- **Do not hand-roll `fetch`.** Always go through the Effect `APIClient.send` so
   the Bearer header + single-flight refresh stay consistent.
 - **Do not add native modules without a dev build.** Expo Go bundles
   a fixed set of native modules; anything else (e.g.
@@ -117,13 +112,12 @@ mobile/
 
 ## Auth flow (single-flight 401 refresh)
 
-The shape of `mobile/src/api/client.ts` <!-- expect: refreshInFlight --> mirrors the deleted SwiftUI `APIClient.swift`:
+`mobile/src/api/client.ts` <!-- expect: refreshSemaphore --> preserves single-flight refresh with an Effect semaphore:
 
-1. `send()` reads the stored access token, attaches a `Bearer` header,
-   fires the request via the injected `fetchImpl`.
-2. On `401` (and `skipAuth` false), it calls `runRefresh()`. If a
-   refresh is already in flight, callers `await` the same `Promise`
-   instead of making a second `/api/auth/refresh` call (single-flight).
+1. `send()` reads the stored access token Effect, attaches a `Bearer` header,
+   and decodes the response with a shared Effect Schema.
+2. On `401`, callers enter one semaphore; the first refreshes while later
+   callers reuse the token written by the first (single-flight).
 3. After the refresh resolves, the original request is retried once.
 4. If the second attempt also returns `401`, `onUnauthorized()` fires
    and the auth store flips to `unauthenticated`.
@@ -156,9 +150,8 @@ to enable" hint. On success, the `id_token` POSTs to
 
 ## Testing convention
 
-`mobile/__tests__/` holds Jest specs. The auth store at
-`mobile/src/auth/store.ts` <!-- expect: create --> is testable by
-calling `useAuthStore.getState()` directly and mocking `global.fetch`.
+`mobile/__tests__/` holds Jest specs. Test exported auth workflow Effects with
+injected API/token adapters; component tests mount `RegistryProvider`.
 The `expo-secure-store` mock in `mobile/jest.setup.ts` keeps tokens in
 process memory across the test run, so writes from one test do not
 leak into the next (call `tokens.clear()` in `beforeEach`).
@@ -171,9 +164,9 @@ implementation instead.
 
 ## Canonical exemplars
 
-- API client (single-flight refresh): `mobile/src/api/client.ts`
+- API client (single-flight refresh): `mobile/src/api/client.ts` <!-- expect: refreshSemaphore -->
 - Token storage wrapper: `mobile/src/api/tokens.ts`
-- Auth store: `mobile/src/auth/store.ts`
+- Auth atoms/workflows: `mobile/src/auth/store.ts` <!-- expect: authStateAtom -->
 - Magic-link deep-link target: `mobile/app/auth/verify.tsx`
 - Login screen (Google + magic link): `mobile/app/login.tsx`
 - Tabbed shell: `mobile/app/(tabs)/_layout.tsx`

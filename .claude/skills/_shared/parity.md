@@ -29,7 +29,7 @@ Parity applies to **user-facing features**. It does not apply to:
   config, ESLint configs).
 - Internal refactors that don't change behavior.
 
-## How `check:parity` enforces it
+## How `check/parity` enforces it
 
 `backend/cmd/check-parity/main.go` walks two trees: `web/src/**`
 (`.ts`, `.tsx`) and `mobile/**` (`.ts`, `.tsx`). Every `/api/*` spec

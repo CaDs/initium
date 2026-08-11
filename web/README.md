@@ -1,6 +1,6 @@
 # Initium — Web Frontend
 
-Next.js 16 App Router frontend for the Initium full-stack starter template.
+Next.js 16 App Router frontend using shared Effect Schema contracts and typed failures.
 
 ## Quickstart
 

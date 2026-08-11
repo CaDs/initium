@@ -36,7 +36,10 @@ describe("requestMagicLink Server Action", () => {
 
   it("returns an early validation error for empty string email", async () => {
     const { requestMagicLink } = await import("@/actions/auth");
-    const result = await requestMagicLink(initialState, formData({ email: "" }));
+    const result = await requestMagicLink(
+      initialState,
+      formData({ email: "" }),
+    );
 
     expect(result).toEqual({ ok: false, message: "Email is required." });
   });
@@ -69,8 +72,9 @@ describe("requestMagicLink Server Action", () => {
 
   it("falls back to the generic UNKNOWN error message on non-JSON failure", async () => {
     server.use(
-      http.post(absoluteUrl("/api/auth/magic-link"), () =>
-        new Response("boom", { status: 502, statusText: "Bad Gateway" }),
+      http.post(
+        absoluteUrl("/api/auth/magic-link"),
+        () => new Response("boom", { status: 502, statusText: "Bad Gateway" }),
       ),
     );
 

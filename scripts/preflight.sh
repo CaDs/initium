@@ -3,7 +3,7 @@
 # Designed for agent self-check: run this before declaring a feature done.
 #
 # All gates run in pure Node / Go — no Xcode, no Android Studio. The
-# mobile QR-driven dev loop (`make dev:mobile`) needs a real device with
+# mobile QR-driven dev loop (`make dev/mobile`) needs a real device with
 # Expo Go, but that's separate from the gate.
 
 set -euo pipefail
@@ -14,33 +14,33 @@ step() { printf "\n\033[1;36m▸ %s\033[0m\n" "$*"; }
 
 trap 'red "preflight FAILED"' ERR
 
-step "lint (backend + web + mobile, parallel)"
+step "lint (backend + shared core + web + mobile, parallel)"
 make lint
 
-step "test:coverage (backend + web + mobile, parallel — phased floors)"
+step "test/coverage (backend + shared core + web + mobile, parallel — phased floors)"
 # Coverage gates run instead of plain `make test` so a regression in
 # coverage fails the same gate that catches functional regressions.
 # Floors are intentionally low (35% backend, 25% web, 25% mobile) and
 # ramp toward 80% in follow-up PRs as coverage grows.
-make -j3 test:backend:coverage test:web:coverage test:mobile:coverage
+make -j4 test/backend/coverage test/core/coverage test/web/coverage test/mobile/coverage
 
-step "check:gen-drift (openapi.yaml + api-types.ts up to date)"
+step "check/gen-drift (openapi.yaml + api-types.ts up to date)"
 # Regenerate the artifacts that downstream stacks consume. If a PR added
-# a Huma operation but forgot to run `make gen:openapi`, the resulting
+# a Huma operation but forgot to run `make gen/openapi`, the resulting
 # diff fails this step with a clear hint.
-make gen:openapi
-if ! git diff --exit-code -- backend/api/openapi.yaml web/src/lib/api-types.ts; then
-    red "Generated artifacts are stale — commit the diff above (run \`make gen:openapi\`)."
+make gen/openapi
+if ! git diff --exit-code -- backend/api/openapi.yaml packages/core/src/generated/api-types.ts; then
+    red "Generated artifacts are stale — commit the diff above (run \`make gen/openapi\`)."
     exit 1
 fi
 
-step "check:parity (every /api/ spec path has a consumer in web/src or mobile)"
-make check:parity
+step "check/parity (every /api/ spec path has a consumer in web/src or mobile)"
+make check/parity
 
-step "check:skills (exemplar path + symbol drift)"
+step "check/skills (exemplar path + symbol drift)"
 bash scripts/check-skills.sh
 
-step "check:staged (no untracked or unstaged files)"
+step "check/staged (no untracked or unstaged files)"
 bash scripts/check-staged.sh
 
 green "preflight PASSED"

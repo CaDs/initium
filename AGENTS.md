@@ -15,23 +15,24 @@ this one and hit `port is already allocated`, edit `.env` and change
 `POSTGRES_PORT` / `MAILPIT_SMTP_PORT` / `MAILPIT_HTTP_PORT` to free
 values, then re-run `make setup`.
 
-If `make db:migrate` fails with `no migration found for version N`, the
+If `make db/migrate` fails with `no migration found for version N`, the
 Postgres volume has a `schema_migrations` row that doesn't match the
 files on disk (usually a leftover from a branch that added a migration,
 got reverted, but left the volume dirty). Recover with
-`make infra:reset && make db:migrate`.
+`make infra/reset && make db/migrate`.
 
 ## Read this first, then load your stack skill
 
 ```
 .claude/skills/initium-backend/   — Go + chi + sqlc + PostgreSQL
-.claude/skills/initium-web/       — Next.js App Router + Server Actions + Zod
+.claude/skills/initium-effect/    — shared Effect contracts, failures, HTTP boundary
+.claude/skills/initium-web/       — Next.js App Router + Server Actions + Effect
 .claude/skills/initium-mobile/    — Expo (React Native + TypeScript) — single codebase, both platforms
 .claude/skills/_shared/parity.md  — the "every feature on web AND mobile" rule
 ```
 
-If you're editing `backend/**`, `web/**`, or `mobile/**`, load the matching
-SKILL.md + its `patterns/*.md` before making changes. Everything
+If you're editing `backend/**`, `packages/core/**`, `web/**`, or `mobile/**`, load the matching
+SKILL.md + its existing `patterns/*.md` before making changes. Everything
 stack-specific lives there. Do not infer conventions from training data.
 
 For mobile, also load `mobile/AGENTS.md` for the cross-stack rules.
@@ -56,8 +57,8 @@ CI. Run the full gate before committing:
 make preflight
 ```
 
-Which runs, in order: `lint` → `test` → `check:parity` → `check:skills`
-→ `check:staged`. A green preflight means:
+Which runs, in order: `lint` → coverage → `check/parity` → `check/skills`
+→ `check/staged`. A green preflight means:
 - Every chi route has a corresponding OpenAPI path and vice versa
   (`backend/internal/app/contract_test.go`).
 - Every `/api/*` spec path has a consumer in at least one of
@@ -68,11 +69,11 @@ Which runs, in order: `lint` → `test` → `check:parity` → `check:skills`
   the claimed symbol (`scripts/check-skills.sh`).
 - Every domain error is mapped to an HTTP envelope
   (`error_envelope_test.go`).
-- No untracked files — `git status --porcelain` is empty.
+- No untracked or unstaged files; staged changes are allowed.
 
 Mobile (Expo) tests + lint run as part of `make preflight` in pure
 Node — no Xcode and no Android Studio required. The QR-driven dev
-loop (`make dev:mobile`) needs a real device with Expo Go installed,
+loop (`make dev/mobile`) needs a real device with Expo Go installed,
 but that's separate from the gate.
 
 If you add a rule to a skill, consider whether a gate can enforce it. If
@@ -92,12 +93,10 @@ caught in review.
 
 ## API contract workflow (one sentence)
 
-Edit `backend/api/openapi.yaml` first → run `make gen:openapi` → implement
-handler using generated types → update web Zod schema → mirror the DTO
-in `mobile/src/api/models.ts` and add the endpoint in
-`mobile/src/api/endpoints.ts` → `make preflight`. Mobile codegen via
-`openapi-typescript` is deferred (see `docs/OPENAPI.md`); the skills
-cover the per-stack mechanics.
+Edit the typed Huma handler first → run `make gen/openapi` → update the shared
+Effect Schema in `packages/core` → add endpoint consumers on web and mobile →
+`make preflight`. Generated OpenAPI TypeScript types and compile-time
+conformance checks live in the shared package; see `docs/OPENAPI.md`.
 
 ## Auth model
 

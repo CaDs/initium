@@ -41,7 +41,7 @@ check_skill() {
   #    Paths must start with a known prefix AND contain `/`.
   local refs
   refs=$(
-    grep -hoE '`(backend|web|mobile|docs|scripts)/[a-zA-Z0-9_./:\-]+`' "$dir/SKILL.md" 2>/dev/null \
+    grep -hoE '`(backend|packages|web|mobile|docs|scripts)/[a-zA-Z0-9_./:\-]+`' "$dir/SKILL.md" 2>/dev/null \
       | sed -E 's/^`//; s/`$//; s/#.*$//' \
       | sort -u
   )
@@ -81,7 +81,7 @@ check_skill() {
   done < <(grep -hE '`[^`]+` *<!-- *expect: *[^ ]+ *-->' "${files[@]}" 2>/dev/null || true)
 }
 
-for skill in initium-backend initium-web initium-mobile; do
+for skill in initium-backend initium-effect initium-web initium-mobile; do
   check_skill "$skill"
 done
 

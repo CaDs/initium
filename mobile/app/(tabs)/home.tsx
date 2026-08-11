@@ -28,9 +28,7 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
   return (
     <View className="flex-row justify-between border-b border-neutral-200/60 py-2 last:border-b-0 dark:border-neutral-800/60">
       <Text className="text-sm text-neutral-500">{label}</Text>
-      <Text
-        className={`text-sm text-black dark:text-white ${mono ? 'font-mono' : 'font-medium'}`}
-      >
+      <Text className={`text-sm text-black dark:text-white ${mono ? 'font-mono' : 'font-medium'}`}>
         {value}
       </Text>
     </View>

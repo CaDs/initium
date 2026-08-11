@@ -1,5 +1,6 @@
 import '../global.css';
 
+import { RegistryProvider } from '@effect-atom/atom-react/RegistryContext';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -8,6 +9,14 @@ import { ActivityIndicator, View } from 'react-native';
 import { useAuth } from '@/auth/useAuth';
 
 export default function RootLayout() {
+  return (
+    <RegistryProvider>
+      <RootContent />
+    </RegistryProvider>
+  );
+}
+
+function RootContent() {
   const { status, bootstrap } = useAuth();
 
   useEffect(() => {

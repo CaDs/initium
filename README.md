@@ -15,15 +15,16 @@ An opinionated full-stack starter template for experimenting with new ideas with
 | Component | Technology |
 |-----------|-----------|
 | Backend | Go (chi + sqlc + PostgreSQL) |
-| Frontend | Next.js (App Router, TypeScript, Tailwind) |
-| Mobile | Expo (React Native + TypeScript, NativeWind, Expo Router) |
+| Shared TypeScript | Effect v3 (Schema, typed failures, request core) |
+| Frontend | Next.js (App Router, TypeScript, Tailwind, Effect) |
+| Mobile | Expo (React Native + TypeScript, NativeWind, Expo Router, Effect Atom) |
 | Infra | Docker Compose (PostgreSQL + Mailpit) |
 
 ## Quick Start
 
 ```bash
-# Prerequisites: Go 1.23+, Node 20+, Docker
-# Install golang-migrate: brew install golang-migrate
+# Prerequisites: Go 1.26.1+, Node 20.19.4+, Docker
+# make setup builds the pinned migration CLI under backend/bin
 # Mobile dev loop uses Expo Go on a real device — no Xcode or Android Studio required
 
 make setup    # Starts infra, installs deps (backend, web, mobile), runs migrations, generates JWT keys
@@ -59,12 +60,14 @@ Every POC needs the same boring foundation. Initium provides it so you can focus
 ```
 initium/
 ├── backend/                  # Go API server
+├── packages/core/            # Shared Effect schemas, errors, HTTP boundary
 ├── web/                      # Next.js frontend
 ├── mobile/                   # Expo (React Native + TypeScript) app
 │   ├── app/                  #   Expo Router routes (file-based)
 │   └── src/                  #   API client, auth store, UI primitives
 ├── .claude/skills/           # Agent guidance (initium-{backend,web,mobile})
 ├── docker-compose.yml
+├── package.json              # npm workspace for core + web + mobile
 ├── Makefile                  # All dev commands (make help)
 ├── AGENTS.md / CLAUDE.md     # Invariants + gates + skill map (same file)
 └── docs/OPENAPI.md           # Contract-first workflow
@@ -77,16 +80,16 @@ Commands are namespaced — run `make help` for the grouped list. Short summary:
 ### Backend
 
 ```bash
-make infra:up                    # Start PostgreSQL + Mailpit
-make dev:backend                 # Hot reload via air
-make test:backend                # Run tests
-make lint:backend                # Lint
-make db:migrate                  # Run migrations
-make db:create NAME=add_orders   # Create new migration
-make db:psql                     # Open psql against the dev database
+make infra/up                    # Start PostgreSQL + Mailpit
+make dev/backend                 # Hot reload via Air
+make test/backend                # Run tests
+make lint/backend                # Lint
+make db/migrate                  # Run migrations
+make db/create NAME=add_orders   # Create new migration
+make db/psql                     # Open psql against the dev database
 make routes                      # Print HTTP route table (dev only)
 make docs                        # Serve Swagger UI on :8088
-make check:parity                # Verify every /api/ spec path has a web consumer
+make check/parity                # Verify every API path has a client consumer
 ```
 
 API spec: `backend/api/openapi.yaml` — see `docs/OPENAPI.md` for the contract-first workflow.
@@ -94,22 +97,22 @@ API spec: `backend/api/openapi.yaml` — see `docs/OPENAPI.md` for the contract-
 ### Frontend
 
 ```bash
-make infra:up         # Start PostgreSQL + Mailpit
-make dev:backend      # Start backend (needed for API)
-make dev:web          # Next.js dev server on port 3000
-make test:web         # Run tests
-make lint:web         # Lint
+make infra/up         # Start PostgreSQL + Mailpit
+make dev/backend      # Start backend (needed for API)
+make dev/web          # Next.js dev server on port 3000
+make test/web         # Run tests
+make lint/web         # Lint
 ```
 
 ### Mobile (Expo)
 
 ```bash
-make dev:mobile                   # Metro + QR for Expo Go (scan with a real device)
-make dev:mobile:ios               # Auto-launch the iOS simulator (Xcode required)
-make dev:mobile:android           # Auto-launch a connected Android emulator
-make test:mobile                  # Jest suite
-make lint:mobile                  # ESLint + tsc --noEmit
-make build:mobile                 # Static export under mobile/dist
+make dev/mobile                   # Metro + QR for Expo Go (scan with a real device)
+make dev/mobile/ios               # Launch the iOS simulator (Xcode required)
+make dev/mobile/android           # Launch a connected Android emulator
+make test/mobile                  # Jest suite
+make lint/mobile                  # ESLint + tsc --noEmit
+make build/mobile                 # Export web, Android, and iOS bundles
 ```
 
 The dev loop targets Expo Go for the fastest POC iteration — no Xcode
@@ -121,7 +124,7 @@ when a fork wants standalone signed builds.
 ### Pre-PR
 
 ```bash
-make preflight        # lint + test + check:parity + check:skills + check:staged
+make preflight        # lint + coverage + generation + parity + skills + staged-work check
 ```
 
 `make preflight` runs lint + tests + coverage gates for backend, web,
@@ -157,6 +160,16 @@ one based on which paths they're editing. See `AGENTS.md` for the map.
   the `initium://auth/verify?token=…` deep link.
 - Magic links are single-use (enforced via DB)
 - Refresh token rotation on every refresh
+
+## Effect model
+
+- Huma-generated OpenAPI remains the API source of truth.
+- `packages/core` mirrors wire payloads with Effect Schema and compile-checks
+  them against generated OpenAPI TypeScript types.
+- Web and mobile share schemas and typed failures while keeping cookies and
+  SecureStore in framework-specific adapters.
+- Expo auth state uses Effect Atom. Imports use narrow package subpaths to
+  avoid pulling RPC/platform modules into the mobile bundle.
 
 ## Local Dev URLs
 

@@ -184,6 +184,7 @@ func (h *AuthHandler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"code":"INTERNAL_ERROR","message":"internal error"}`, http.StatusInternalServerError)
 		return
 	}
+	// #nosec G124 -- Secure follows the environment; local HTTP intentionally disables it.
 	http.SetCookie(w, &http.Cookie{
 		Name:     "oauth_state",
 		Value:    state,
@@ -205,11 +206,15 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Clear state cookie
+	// #nosec G124 -- Secure follows the environment; local HTTP intentionally disables it.
 	http.SetCookie(w, &http.Cookie{
-		Name:   "oauth_state",
-		Value:  "",
-		Path:   "/",
-		MaxAge: -1,
+		Name:     "oauth_state",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.secureCookies,
+		SameSite: http.SameSiteLaxMode,
 	})
 
 	code := r.URL.Query().Get("code")

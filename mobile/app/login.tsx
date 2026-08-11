@@ -82,9 +82,7 @@ export default function LoginScreen() {
               Check your inbox for the sign-in link.
             </Text>
           )}
-          {error && (
-            <Text className="mt-3 text-center text-sm text-red-600">{error}</Text>
-          )}
+          {error && <Text className="mt-3 text-center text-sm text-red-600">{error}</Text>}
 
           <View className="my-6 h-px bg-neutral-200 dark:bg-neutral-800" />
 
@@ -115,9 +113,7 @@ function GoogleSignInButton() {
       accessibilityRole="button"
       className="items-center rounded-xl border border-neutral-300 px-4 py-3 dark:border-neutral-700"
     >
-      <Text className="text-base font-medium text-black dark:text-white">
-        Continue with Google
-      </Text>
+      <Text className="text-base font-medium text-black dark:text-white">Continue with Google</Text>
     </Pressable>
   );
 }

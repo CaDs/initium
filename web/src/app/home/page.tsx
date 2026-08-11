@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { UserSchema } from "@initium/core";
+
 import { apiFetch } from "@/lib/api";
-import { userSchema } from "@/lib/schemas";
-import type { User } from "@/lib/types";
 
 export default async function HomePage() {
-  const result = await apiFetch<User>("/api/me", {}, userSchema);
+  const result = await apiFetch("/api/me", {}, UserSchema);
 
   if (!result.ok) {
     redirect("/login");

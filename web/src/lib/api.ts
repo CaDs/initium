@@ -1,19 +1,34 @@
 import { cookies } from "next/headers";
-import type { z } from "zod";
-import type { ApiResult, ApiError } from "./types";
+import {
+  DecodeError,
+  HttpError,
+  TransportError,
+  requestJson,
+  type APIError,
+} from "@initium/core";
+import { Effect, Either, type Schema } from "effect";
+
 import { API_URL } from "./env";
 
-export async function apiFetch<T>(
+export type ApiResult<T> =
+  { ok: true; data: T } | { ok: false; error: APIError };
+
+type ApiFetchOptions = Omit<RequestInit, "body" | "headers"> & {
+  readonly body?: unknown;
+  readonly headers?: Readonly<Record<string, string>>;
+};
+
+export async function apiFetch<A, I>(
   path: string,
-  options: RequestInit = {},
-  schema?: z.ZodType<T>
-): Promise<ApiResult<T>> {
+  options: ApiFetchOptions,
+  schema: Schema.Schema<A, I>,
+): Promise<ApiResult<A>> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get("access_token")?.value;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...((options.headers as Record<string, string>) || {}),
+    ...(options.headers || {}),
   };
 
   if (accessToken) {
@@ -21,35 +36,51 @@ export async function apiFetch<T>(
     headers["Cookie"] = `access_token=${accessToken}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers,
-    cache: "no-store",
-  });
-
-  if (!res.ok) {
-    const error: ApiError = await res.json().catch(() => ({
-      code: "UNKNOWN",
-      message: res.statusText,
-    }));
-    return { ok: false, error };
-  }
-
-  const data = await res.json();
-
-  if (schema) {
-    const parsed = schema.safeParse(data);
-    if (!parsed.success) {
-      return {
-        ok: false,
-        error: {
-          code: "VALIDATION_ERROR",
-          message: `API response validation failed: ${parsed.error.message}`,
+  const result = await Effect.runPromise(
+    Effect.either(
+      requestJson(
+        fetch,
+        {
+          url: `${API_URL}${path}`,
+          method: options.method,
+          headers,
+          body: options.body,
+          cache: "no-store",
         },
-      };
-    }
-    return { ok: true, data: parsed.data };
-  }
+        schema,
+      ),
+    ),
+  );
 
-  return { ok: true, data: data as T };
+  if (Either.isRight(result)) return { ok: true, data: result.right };
+
+  const failure = result.left;
+  if (failure instanceof HttpError) {
+    return {
+      ok: false,
+      error: {
+        code: failure.code,
+        message: failure.message,
+        ...(failure.requestId === undefined
+          ? {}
+          : { request_id: failure.requestId }),
+      },
+    };
+  }
+  if (failure instanceof DecodeError) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_ERROR", message: failure.message },
+    };
+  }
+  if (failure instanceof TransportError) {
+    return {
+      ok: false,
+      error: { code: "UNKNOWN", message: "API request failed" },
+    };
+  }
+  return {
+    ok: false,
+    error: { code: "UNKNOWN", message: "API request failed" },
+  };
 }
