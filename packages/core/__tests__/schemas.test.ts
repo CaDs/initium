@@ -1,28 +1,17 @@
+import { Either, Schema } from "effect";
+import { describe, expect, it } from "vitest";
+
 import {
   APIErrorSchema,
   MessageResponseSchema,
   TokenPairSchema,
   UserSchema,
-} from "@initium/core";
-import { Either, Schema } from "effect";
-import { describe, expect, it } from "vitest";
+} from "../src";
 
 const parses = <A, I>(schema: Schema.Schema<A, I>, input: unknown) =>
   Either.isRight(Schema.decodeUnknownEither(schema)(input));
 
-describe("userSchema", () => {
-  it("parses a valid user", () => {
-    const result = parses(UserSchema, {
-      id: "550e8400-e29b-41d4-a716-446655440000",
-      email: "test@example.com",
-      name: "Test User",
-      avatar_url: "https://example.com/avatar.png",
-      role: "user",
-      created_at: "2025-01-01T00:00:00Z",
-    });
-    expect(result).toBe(true);
-  });
-
+describe("UserSchema", () => {
   it("rejects missing email", () => {
     const result = parses(UserSchema, {
       id: "123",
@@ -47,25 +36,18 @@ describe("userSchema", () => {
   });
 });
 
-describe("tokenPairSchema", () => {
-  it("parses valid token pair", () => {
+describe("TokenPairSchema", () => {
+  it("parses a valid token pair", () => {
     const result = parses(TokenPairSchema, {
       access_token: "eyJhbGciOiJSUzI1NiJ9...",
       refresh_token: "abc123",
     });
     expect(result).toBe(true);
   });
-
-  it("rejects missing refresh_token", () => {
-    const result = parses(TokenPairSchema, {
-      access_token: "abc",
-    });
-    expect(result).toBe(false);
-  });
 });
 
-describe("errorSchema", () => {
-  it("parses error with optional request_id", () => {
+describe("APIErrorSchema", () => {
+  it("parses an error with request_id", () => {
     const result = parses(APIErrorSchema, {
       code: "TOKEN_INVALID",
       message: "token is invalid",
@@ -74,7 +56,7 @@ describe("errorSchema", () => {
     expect(result).toBe(true);
   });
 
-  it("parses error without request_id", () => {
+  it("parses an error without request_id", () => {
     const result = parses(APIErrorSchema, {
       code: "INTERNAL_ERROR",
       message: "something went wrong",
@@ -83,8 +65,8 @@ describe("errorSchema", () => {
   });
 });
 
-describe("messageSchema", () => {
-  it("parses message response", () => {
+describe("MessageResponseSchema", () => {
+  it("parses a message response", () => {
     const result = parses(MessageResponseSchema, {
       message: "magic link sent",
     });

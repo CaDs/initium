@@ -128,7 +128,7 @@ describe("middleware", () => {
   it("redirects to /login and clears cookies when refresh response shape is invalid", async () => {
     server.use(
       http.post(absoluteUrl("/api/auth/refresh"), () =>
-        // Wrong shape — Zod rejects, middleware must not write `undefined`
+        // Wrong shape — the schema rejects, middleware must not write `undefined`
         // cookies (regression test for a real failure mode).
         Response.json({ wrong: "shape" }),
       ),

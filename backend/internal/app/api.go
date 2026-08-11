@@ -36,7 +36,7 @@ func NewAPI(r chi.Router) huma.API {
 	//   - CreateHooks: nil drops the spec-mutation hook that adds the
 	//     $schema field to every component schema.
 	//   - SchemasPath: "" disables the runtime /schemas/{name} endpoint.
-	// Web Zod and mobile Codable parsers see only the declared shape.
+	// The shared Effect Schemas see only the declared shape.
 	cfg.SchemasPath = ""
 	cfg.Transformers = nil
 	cfg.CreateHooks = nil
