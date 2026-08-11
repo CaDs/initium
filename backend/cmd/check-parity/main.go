@@ -4,7 +4,7 @@
 // endpoint.
 //
 // Run: go run ./cmd/check-parity
-// Exits non-zero on orphan paths. Wired into `make check:parity`.
+// Exits non-zero on orphan paths. Wired into `make check/parity`.
 //
 // Rules:
 //   - Every path under /api/ must appear as a literal string in at least

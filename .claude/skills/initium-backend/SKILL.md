@@ -16,18 +16,17 @@ committing. It fails if any of the following is true:
 
 - A domain error sentinel isn't mapped in `respond.go`
   (`error_envelope_test.go`).
-- `make gen:openapi` produces a diff against `backend/api/openapi.yaml`
-  or `web/src/lib/api-types.ts` — i.e. someone added a Huma operation
+- `make gen/openapi` produces a diff against `backend/api/openapi.yaml`
+  or `packages/core/src/generated/api-types.ts` — i.e. someone added a Huma operation
   but forgot to regenerate downstream artifacts. The drift step in
   `scripts/preflight.sh` runs gen and diffs the tracked files.
 - A `/api/*` spec path has no consumer in web or mobile code
-  (`make check:parity`).
-- Backend coverage drops below 35% (`make test:backend:coverage`).
+  (`make check/parity`).
+- Backend coverage drops below 35% (`make test/backend/coverage`).
   Phased ramp toward 80% in follow-up PRs as coverage grows.
 - An exemplar path cited in this skill no longer contains its
-  `<!-- expect: symbol -->` annotation (`make check:skills`).
-- `git status --porcelain` is non-empty after the run
-  (`make check:staged`).
+  `<!-- expect: symbol -->` annotation (`make check/skills`).
+- Work remains untracked or unstaged after the run (`make check/staged`).
 
 If you add a convention to this skill, ask whether a gate can enforce
 it. If yes, add the gate. If no, the convention will drift.
@@ -53,7 +52,7 @@ internal/app/             Router builder + Huma API constructor. Keeps
                           same API graph with stub deps.
 cmd/server/               main.go composition root.
 cmd/gen-openapi/          Builds the Huma API in-process and writes
-                          backend/api/openapi.yaml. Run via `make gen:openapi`.
+                          backend/api/openapi.yaml. Run via `make gen/openapi`.
 cmd/check-parity/         Verifies every /api/ spec path has a client consumer.
 ```
 
@@ -103,19 +102,18 @@ is a generated artifact — never hand-edit. When adding or changing any endpoin
 4. Wire the new `RegisterX` call from `internal/app/router.go` (so
    `cmd/server` runs it) AND from `cmd/gen-openapi/main.go` (so the
    on-disk spec includes it).
-5. Run `make gen:openapi` to regenerate `backend/api/openapi.yaml`
-   and `web/src/lib/api-types.ts`. Commit the regenerated files.
+5. Run `make gen/openapi` to regenerate `backend/api/openapi.yaml`
+   and `packages/core/src/generated/api-types.ts`. Update the shared Effect
+   Schema/conformance assertion and commit the generated files.
 
 **No more "edit spec first" cadence.** Validation tags on the input
 struct generate the right schema constraints automatically; manual
 `if req.Email == ""` checks are gone.
 
-**Cross-stack completeness**: backend endpoints almost always imply
-matching web UI. If you add `/api/notes`, a web Zod schema should
-land with it. `make check:parity` fails if a spec path has no
-consumer in `web/src` — treat that as a real signal, not lint
-noise. Mobile parity is paused while the native apps catch up; see
-`.claude/skills/_shared/parity.md`.
+**Cross-stack completeness**: backend endpoints almost always imply matching
+web and mobile consumers. Add the shared Effect Schema in `packages/core`,
+then mirror the feature on both surfaces. `make check/parity` catches paths
+with no consumer; review enforces both-surface parity.
 
 ## Routes that stay chi-native
 
@@ -207,7 +205,7 @@ byte streaming via `huma.StreamResponse` works too. See
 - `t.Parallel()` where safe.
 - Phased coverage gate at 35% lines (current: 44.7%); ramping to
   80% as coverage grows in follow-up PRs. Run with
-  `make test:backend:coverage`. Every bug fix gets a regression test.
+  `make test/backend/coverage`. Every bug fix gets a regression test.
 - Name pattern: `TestServiceName_Method_Scenario_Expected`.
 - **Mocks live in `internal/testutil/`** as canonical, function-injection
   fakes (one `Fn` field per interface method). Compile-time
@@ -241,7 +239,7 @@ byte streaming via `huma.StreamResponse` works too. See
 - Error envelope test: `backend/internal/adapter/handler/error_envelope_test.go` <!-- expect: TestError_EnvelopeShape -->
 - Handler test (humatest): `backend/internal/adapter/handler/mobile_auth_test.go` <!-- expect: humatest.New -->
 - Repo: `backend/internal/adapter/persistence/user_repo.go` <!-- expect: UserRepo --> — sqlc-backed impl wrapping `db.Queries`.
-- Queries: `backend/internal/adapter/persistence/query/users.sql` <!-- expect: GetUserByID --> — hand-written SQL, source for `make gen:sqlc`.
+- Queries: `backend/internal/adapter/persistence/query/users.sql` <!-- expect: GetUserByID --> — hand-written SQL, source for `make gen/sqlc`.
 - Row mappers: `backend/internal/adapter/persistence/models.go` <!-- expect: userToDomain --> — sqlc row → domain entity.
 - sqlc config: `backend/sqlc.yaml` <!-- expect: pgx/v5 --> — engine, query dir, type overrides.
 - Migration: `backend/migrations/` — sequential numbered .sql files.

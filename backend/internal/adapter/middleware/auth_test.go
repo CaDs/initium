@@ -89,6 +89,7 @@ func TestAuth_ValidCookieToken_AuthenticatesUser(t *testing.T) {
 	chained := middleware.Auth(tokens, false)(okHandler200())
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
+	// #nosec G124 -- request-only test cookie; it is never emitted to a client.
 	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
 	rec := httptest.NewRecorder()
 	chained.ServeHTTP(rec, req)
@@ -147,6 +148,7 @@ func TestAuth_BearerOverridesCookie(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/me", nil)
 	req.Header.Set("Authorization", "Bearer bearer-token")
+	// #nosec G124 -- request-only test cookie; it is never emitted to a client.
 	req.AddCookie(&http.Cookie{Name: "access_token", Value: "cookie-token"})
 	rec := httptest.NewRecorder()
 	chained.ServeHTTP(rec, req)

@@ -313,6 +313,7 @@ func TestAuthHandler_GoogleCallback_StateMismatch_401(t *testing.T) {
 	h, _ := newChiAuthHandler()
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/auth/google/callback?state=client-state&code=abc", nil)
+	// #nosec G124 -- request-only test cookie; it is never emitted to a client.
 	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "different-state"})
 	rec := httptest.NewRecorder()
 
@@ -344,6 +345,7 @@ func TestAuthHandler_GoogleCallback_LoginError_MapsToHTTP(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/auth/google/callback?state=ok&code=abc", nil)
+	// #nosec G124 -- request-only test cookie; it is never emitted to a client.
 	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "ok"})
 	rec := httptest.NewRecorder()
 
@@ -362,6 +364,7 @@ func TestAuthHandler_GoogleCallback_Success_RedirectsToHome(t *testing.T) {
 	}
 	req := httptest.NewRequest(http.MethodGet,
 		"/api/auth/google/callback?state=ok&code=abc", nil)
+	// #nosec G124 -- request-only test cookie; it is never emitted to a client.
 	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "ok"})
 	rec := httptest.NewRecorder()
 

@@ -36,7 +36,7 @@ vi.mock("react", async (importOriginal) => {
     ...actual,
     useActionState: (
       _action: unknown,
-      initialState: unknown
+      initialState: unknown,
     ): [unknown, () => void, boolean] => [initialState, () => {}, false],
   };
 });
@@ -49,7 +49,7 @@ describe("MagicLinkForm", () => {
   it("renders the submit button with correct label", () => {
     render(<MagicLinkForm />);
     expect(
-      screen.getByRole("button", { name: "Send Magic Link" })
+      screen.getByRole("button", { name: "Send Magic Link" }),
     ).toBeInTheDocument();
   });
 
@@ -61,7 +61,7 @@ describe("MagicLinkForm", () => {
   it("submit button is enabled by default", () => {
     render(<MagicLinkForm />);
     expect(
-      screen.getByRole("button", { name: "Send Magic Link" })
+      screen.getByRole("button", { name: "Send Magic Link" }),
     ).not.toBeDisabled();
   });
 });

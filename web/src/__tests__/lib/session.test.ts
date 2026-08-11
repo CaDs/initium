@@ -28,12 +28,17 @@ vi.mock("next/headers", () => ({
       calls.push({ kind: "set", name, value, opts });
       store.set(name, value);
     },
-    get: (name: string) => (store.has(name) ? { value: store.get(name) } : undefined),
+    get: (name: string) =>
+      store.has(name) ? { value: store.get(name) } : undefined,
     delete: (arg: string | { name: string; path: string }) => {
       if (typeof arg === "string") {
         calls.push({ kind: "delete-name", name: arg });
       } else {
-        calls.push({ kind: "delete-with-opts", name: arg.name, path: arg.path });
+        calls.push({
+          kind: "delete-with-opts",
+          name: arg.name,
+          path: arg.path,
+        });
       }
       store.delete(typeof arg === "string" ? arg : arg.name);
     },
@@ -52,8 +57,8 @@ describe("setTokenCookies", () => {
 
     expect(calls).toHaveLength(2);
 
-    const setCalls = calls.filter((c): c is Extract<CookieCall, { kind: "set" }> =>
-      c.kind === "set",
+    const setCalls = calls.filter(
+      (c): c is Extract<CookieCall, { kind: "set" }> => c.kind === "set",
     );
 
     const access = setCalls.find((c) => c.name === "access_token");

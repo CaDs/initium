@@ -26,6 +26,8 @@ describe("/api/auth/verify route handler", () => {
     const res = await GET(req);
 
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toContain("/api/auth/verify?token=magic-link-token");
+    expect(res.headers.get("location")).toContain(
+      "/api/auth/verify?token=magic-link-token",
+    );
   });
 });

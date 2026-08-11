@@ -1,5 +1,5 @@
 // gen-openapi builds the Huma API in-process and writes its generated
-// OpenAPI 3.1 spec to backend/api/openapi.yaml. Wired into `make gen:openapi`.
+// OpenAPI 3.1 spec to backend/api/openapi.yaml. Wired into `make gen/openapi`.
 //
 // The spec produced by Huma is the source of truth for downstream
 // codegen (web's openapi-typescript, mobile DTOs once codegen lands).

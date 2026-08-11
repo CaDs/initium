@@ -13,7 +13,10 @@ const COOKIE_OPTIONS = {
   path: "/",
 };
 
-export async function setTokenCookies(accessToken: string, refreshToken: string) {
+export async function setTokenCookies(
+  accessToken: string,
+  refreshToken: string,
+) {
   const cookieStore = await cookies();
 
   cookieStore.set("access_token", accessToken, {

@@ -1,6 +1,14 @@
-import { create } from 'zustand';
+import * as Atom from '@effect-atom/atom/Atom';
+import {
+  UnauthorizedError,
+  failureMessage,
+  type TokenPair,
+  type TokenStorageError,
+  type User,
+} from '@initium/core';
+import { Effect } from 'effect';
 
-import { APIClient, UnauthorizedError } from '../api/client';
+import { APIClient, type MobileApiFailure } from '../api/client';
 import {
   fetchMe,
   logout as logoutCall,
@@ -8,117 +16,143 @@ import {
   verifyGoogleIDToken,
   verifyMagicLink,
 } from '../api/endpoints';
-import type { User } from '../api/models';
 import { secureTokenStorage, type TokenStorage } from '../api/tokens';
 import { config } from '../config';
 
-export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated' | 'error';
+export type AuthFailure = MobileApiFailure | TokenStorageError;
 
-type AuthState = {
-  status: AuthStatus;
-  user: User | null;
-  error: string | null;
-  client: APIClient;
-  tokens: TokenStorage;
-  bootstrap(): Promise<void>;
-  requestMagicLink(email: string): Promise<void>;
-  verifyMagicLink(token: string): Promise<void>;
-  verifyGoogle(idToken: string): Promise<void>;
-  logout(): Promise<void>;
-};
+export type AuthState =
+  | { readonly _tag: 'Loading' }
+  | { readonly _tag: 'Authenticated'; readonly user: User }
+  | { readonly _tag: 'Unauthenticated' }
+  | { readonly _tag: 'Failed'; readonly error: AuthFailure };
 
 const DEV_USER: User = {
   id: 'dev-bypass',
   email: 'dev@initium.local',
   name: 'Dev User',
-  role: 'user',
-  avatar_url: null,
+  role: 'admin',
+  avatar_url: '',
+  created_at: new Date(0).toISOString(),
 };
 
-const buildClient = (tokens: TokenStorage, onUnauthorized: () => void): APIClient =>
-  new APIClient({ baseURL: config.apiBaseURL, tokens, onUnauthorized });
+export const authStateAtom = Atom.make<AuthState>({ _tag: 'Loading' }).pipe(Atom.keepAlive);
 
-export const useAuthStore = create<AuthState>((set, get) => {
-  const tokens = secureTokenStorage;
-  const onUnauthorized = () => {
-    set({ status: 'unauthenticated', user: null, error: null });
-  };
-  const client = buildClient(tokens, onUnauthorized);
+const tokens = secureTokenStorage;
+const client = new APIClient({ baseURL: config.apiBaseURL, tokens });
 
-  return {
-    status: 'loading',
-    user: null,
-    error: null,
-    client,
-    tokens,
+export const bootstrapAuth = (
+  apiClient: APIClient = client,
+  tokenStorage: TokenStorage = tokens,
+  devBypass = config.devBypassAuth,
+): Effect.Effect<AuthState, never> => {
+  if (devBypass) return Effect.succeed({ _tag: 'Authenticated', user: DEV_USER });
 
-    async bootstrap() {
-      if (config.devBypassAuth) {
-        set({ status: 'authenticated', user: DEV_USER });
-        return;
+  return tokenStorage.read.pipe(
+    Effect.flatMap((stored) =>
+      stored
+        ? fetchMe(apiClient).pipe(
+            Effect.map((user): AuthState => ({ _tag: 'Authenticated', user })),
+          )
+        : Effect.succeed<AuthState>({ _tag: 'Unauthenticated' }),
+    ),
+    Effect.catchAll((error) => {
+      if (error instanceof UnauthorizedError) {
+        return tokenStorage.clear.pipe(
+          Effect.as<AuthState>({ _tag: 'Unauthenticated' }),
+          Effect.catchAll((clearError) =>
+            Effect.succeed<AuthState>({ _tag: 'Failed', error: clearError }),
+          ),
+        );
       }
-      const stored = await tokens.read();
-      if (!stored) {
-        set({ status: 'unauthenticated', user: null, error: null });
-        return;
-      }
-      try {
-        const user = await fetchMe(get().client);
-        set({ status: 'authenticated', user, error: null });
-      } catch (err) {
-        if (err instanceof UnauthorizedError) {
-          await tokens.clear();
-          set({ status: 'unauthenticated', user: null, error: null });
-        } else {
-          set({ status: 'error', error: errorMessage(err) });
-        }
-      }
-    },
+      return Effect.succeed<AuthState>({ _tag: 'Failed', error });
+    }),
+  );
+};
 
-    async requestMagicLink(email: string) {
-      try {
-        await requestMagicLink(get().client, email);
-      } catch (err) {
-        set({ status: 'error', error: errorMessage(err) });
-        throw err;
-      }
-    },
+const authenticate = (
+  exchange: Effect.Effect<TokenPair, MobileApiFailure>,
+  apiClient: APIClient = client,
+  tokenStorage: TokenStorage = tokens,
+): Effect.Effect<AuthState, AuthFailure> =>
+  exchange.pipe(
+    Effect.flatMap((pair) => tokenStorage.write(pair)),
+    Effect.zipRight(fetchMe(apiClient)),
+    Effect.map((user): AuthState => ({ _tag: 'Authenticated', user })),
+  );
 
-    async verifyMagicLink(token: string) {
-      try {
-        const pair = await verifyMagicLink(get().client, token);
-        await tokens.write(pair);
-        const user = await fetchMe(get().client);
-        set({ status: 'authenticated', user, error: null });
-      } catch (err) {
-        set({ status: 'error', error: errorMessage(err) });
-        throw err;
-      }
-    },
+export const verifyMagicLinkAuth = (
+  token: string,
+  apiClient: APIClient = client,
+  tokenStorage: TokenStorage = tokens,
+) => authenticate(verifyMagicLink(apiClient, token), apiClient, tokenStorage);
 
-    async verifyGoogle(idToken: string) {
-      try {
-        const pair = await verifyGoogleIDToken(get().client, idToken);
-        await tokens.write(pair);
-        const user = await fetchMe(get().client);
-        set({ status: 'authenticated', user, error: null });
-      } catch (err) {
-        set({ status: 'error', error: errorMessage(err) });
-        throw err;
-      }
-    },
+export const verifyGoogleAuth = (
+  idToken: string,
+  apiClient: APIClient = client,
+  tokenStorage: TokenStorage = tokens,
+) => authenticate(verifyGoogleIDToken(apiClient, idToken), apiClient, tokenStorage);
 
-    async logout() {
-      try {
-        await logoutCall(get().client);
-      } catch {
-        // best-effort: revoke server-side, but always clear local state
-      }
-      await tokens.clear();
-      set({ status: 'unauthenticated', user: null, error: null });
-    },
-  };
-});
+export const logoutAuth = (
+  apiClient: APIClient = client,
+  tokenStorage: TokenStorage = tokens,
+): Effect.Effect<AuthState, TokenStorageError> =>
+  logoutCall(apiClient).pipe(
+    Effect.ignore,
+    Effect.zipRight(tokenStorage.clear),
+    Effect.as<AuthState>({ _tag: 'Unauthenticated' }),
+  );
 
-const errorMessage = (err: unknown): string =>
-  err instanceof Error ? err.message : String(err);
+const commitState = (get: Atom.FnContext, state: AuthState) =>
+  Effect.sync(() => get.set(authStateAtom, state));
+
+const commitFailure = (get: Atom.FnContext, error: AuthFailure) =>
+  commitState(get, { _tag: 'Failed', error });
+
+export const bootstrapAuthAtom = Atom.fn<void>()((_arg, get) =>
+  bootstrapAuth().pipe(Effect.tap((state) => commitState(get, state))),
+);
+
+export const requestMagicLinkAtom = Atom.fn<string>()((email, get) =>
+  requestMagicLink(client, email).pipe(
+    Effect.tapError((error) => commitFailure(get, error)),
+    Effect.asVoid,
+  ),
+);
+
+export const verifyMagicLinkAtom = Atom.fn<string>()((token, get) =>
+  verifyMagicLinkAuth(token).pipe(
+    Effect.tap((state) => commitState(get, state)),
+    Effect.tapError((error) => commitFailure(get, error)),
+  ),
+);
+
+export const verifyGoogleAtom = Atom.fn<string>()((idToken, get) =>
+  verifyGoogleAuth(idToken).pipe(
+    Effect.tap((state) => commitState(get, state)),
+    Effect.tapError((error) => commitFailure(get, error)),
+  ),
+);
+
+export const logoutAtom = Atom.fn<void>()((_arg, get) =>
+  logoutAuth().pipe(
+    Effect.tap((state) => commitState(get, state)),
+    Effect.tapError((error) => commitFailure(get, error)),
+  ),
+);
+
+export const authStatus = (state: AuthState) => {
+  switch (state._tag) {
+    case 'Loading':
+      return 'loading' as const;
+    case 'Authenticated':
+      return 'authenticated' as const;
+    case 'Unauthenticated':
+      return 'unauthenticated' as const;
+    case 'Failed':
+      return 'error' as const;
+  }
+};
+
+export const authError = (state: AuthState): string | null =>
+  state._tag === 'Failed' ? failureMessage(state.error) : null;

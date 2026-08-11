@@ -11,7 +11,7 @@ iteration. The web Next.js app continues to ship in `web/`.
 - **Expo Router** — file-based routing under `app/`, scheme `initium://`.
 - **NativeWind v4** — Tailwind classes via `className=`. Tokens parity
   with `web/`.
-- **Zustand** — single auth store at `src/auth/store.ts`.
+- **Effect Atom** — shared registry with auth atoms/workflows in `src/auth/store.ts`.
 - **`expo-secure-store`** — Keychain on iOS, EncryptedSharedPreferences
   on Android.
 - **`expo-auth-session/providers/google`** — Google Sign-In, no native
@@ -39,9 +39,8 @@ the cross-stack rules that don't live in the skill.
    set. Anything else (Sentry SDKs, Firebase, native Google Sign-In)
    needs `eas build --profile development`. Don't add the dependency
    without the corresponding plumbing PR first.
-4. **Hand-written DTOs for now.** `src/api/models.ts` mirrors
-   `backend/api/openapi.yaml`. `openapi-typescript` codegen for mobile
-   is deferred until a feature proves it worth wiring.
+4. **Shared Effect contracts.** DTOs and runtime schemas come from
+   `@initium/core`; generated OpenAPI types are checked there for drift.
 
 ## Quick start
 
@@ -55,15 +54,15 @@ cp .env.example .env
 # 3. Start Metro + the QR loop. Scan the QR with Expo Go on a real
 #    device, or tap "open on iOS simulator" / "open on Android emulator"
 #    if Xcode / Android Studio is installed.
-make dev:mobile
+make dev/mobile
 
 # 4. Tests, lint, typecheck — all run in pure Node, no Xcode required.
-make test:mobile             # Jest
-make test:mobile:coverage    # Jest with 25% line floor
-make lint:mobile             # ESLint + tsc --noEmit
+make test/mobile             # Jest
+make test/mobile/coverage    # Jest with 25% line floor
+make lint/mobile             # ESLint + tsc --noEmit
 ```
 
-`make preflight` runs `lint:mobile` and `test:mobile:coverage` as part
+`make preflight` runs `lint/mobile` and `test/mobile/coverage` as part
 of the standard gate. No Xcode, no Android Studio.
 
 ## Deep-link contract
@@ -79,7 +78,7 @@ different scheme.
 
 - Mirrors the equivalent web change in the same PR (or names the mirror
   in the description).
-- Goes through `APIClient.send` — never hand-rolls `fetch`.
+- Goes through the Effect `APIClient.send` — never hand-rolls `fetch`.
 - Adds Jest specs under `__tests__/` for new logic; covers the API
   client + auth state machine when those change.
 - Doesn't bring in React Navigation, Redux, or hand-written native

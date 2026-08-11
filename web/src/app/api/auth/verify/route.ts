@@ -7,7 +7,9 @@ import { API_URL } from "@/lib/env";
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
   if (!token) {
-    return NextResponse.redirect(new URL("/login?error=invalid_token", request.url));
+    return NextResponse.redirect(
+      new URL("/login?error=invalid_token", request.url),
+    );
   }
 
   // Redirect to backend for verification

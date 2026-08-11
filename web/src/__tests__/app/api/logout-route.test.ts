@@ -33,7 +33,9 @@ describe("/api/auth/logout route handler", () => {
   it("clears local cookies and redirects to /login when no refresh_token cookie is present", async () => {
     const { POST } = await import("@/app/api/auth/logout/route");
 
-    const req = new NextRequest("http://localhost:3000/api/auth/logout", { method: "POST" });
+    const req = new NextRequest("http://localhost:3000/api/auth/logout", {
+      method: "POST",
+    });
     const res = await POST(req);
 
     expect(res.status).toBe(307);
@@ -53,7 +55,9 @@ describe("/api/auth/logout route handler", () => {
 
     const { POST } = await import("@/app/api/auth/logout/route");
 
-    const req = new NextRequest("http://localhost:3000/api/auth/logout", { method: "POST" });
+    const req = new NextRequest("http://localhost:3000/api/auth/logout", {
+      method: "POST",
+    });
     req.cookies.set("refresh_token", "TO-REVOKE");
     const res = await POST(req);
 
@@ -75,7 +79,9 @@ describe("/api/auth/logout route handler", () => {
 
     const { POST } = await import("@/app/api/auth/logout/route");
 
-    const req = new NextRequest("http://localhost:3000/api/auth/logout", { method: "POST" });
+    const req = new NextRequest("http://localhost:3000/api/auth/logout", {
+      method: "POST",
+    });
     req.cookies.set("refresh_token", "any");
     const res = await POST(req);
 

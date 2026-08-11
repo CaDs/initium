@@ -1,13 +1,13 @@
 ---
 name: initium-web
-description: Use when writing or modifying the Next.js web app in the Initium template — pages, Server Actions, Server Components, middleware, API route handlers, Zod schemas, i18n, or web tests. Triggers on paths under `web/src/**` or `web/messages/**`. Encodes the App Router + Server Actions + Zod conventions, cookie-based session model, and the contract-first workflow for this specific fork-and-specialize starter template.
+description: Use when writing or modifying the Next.js web app in the Initium template — pages, Server Actions, Server Components, middleware, API route handlers, Effect schemas, i18n, or web tests. Triggers on paths under `web/src/**` or `web/messages/**`.
 ---
 
 # initium-web
 
 You are editing the Next.js web app of an Initium fork. This template ships
 auth (Google + magic link), session cookies, i18n (en/es/ja), theme (light/dark/
-system), and a Zod-validated API client — all minimal, unstyled, ready to be
+system), and an Effect Schema-validated API client — all minimal, unstyled, ready to be
 skinned by the fork.
 
 > **This is NOT the Next.js you know.** App Router semantics, Server Actions,
@@ -21,16 +21,15 @@ Run `make preflight` before committing. It fails if any of the following
 is true:
 
 - A `/api/*` spec path has no consumer in this codebase
-  (`make check:parity`).
+  (`make check/parity`).
 - An exemplar path cited in this skill no longer contains its
-  `<!-- expect: symbol -->` annotation (`make check:skills`).
+  `<!-- expect: symbol -->` annotation (`make check/skills`).
 - `npm run lint`, `npm run test`, or `npm run build` fails.
-- `git status --porcelain` is non-empty after the run (`make check:staged`).
+- Work remains untracked or unstaged after the run (`make check/staged`).
 
-The Zod-at-boundary rule (`lib/schemas.ts`) is enforced at runtime, not in
-CI — a page that forgets its Zod schema will 500 the first time the
-backend returns an unexpected shape. The `apiFetch<T>()` wrapper demands
-a Zod schema argument; do not reach around it.
+The Effect Schema boundary is shared in `packages/core`. `apiFetch()` requires
+a schema and maps typed Effect failures to the UI result envelope; do not reach
+around it or cast JSON.
 
 ## Architecture (framework-native, no extra abstractions)
 
@@ -44,12 +43,10 @@ src/app/              Routes. Server Components for data, Client Components for 
 src/actions/          Server Actions for form mutations (e.g., requestMagicLink).
 src/components/       Reusable components (shared/ + auth/).
 src/lib/
-  api.ts              apiFetch<T>() — server-side fetch wrapper: base URL,
-                      cookie forwarding, cache: no-store, Zod validation.
+  api.ts              apiFetch() — server-side Effect boundary: base URL,
+                      cookie forwarding and shared Schema decoding.
   session.ts          httpOnly cookie helpers; hasSession(), getAccessToken().
-  schemas.ts          Zod schemas for API response validation.
-  api-types.ts        Generated from openapi.yaml — NEVER hand-edit.
-  types.ts            Shared TypeScript types.
+  types.ts            Compatibility type re-exports from @initium/core.
 middleware.ts         Cookie-existence guard + refresh on access_token miss.
 src/i18n/request.ts   next-intl setup; reads cookie locale.
 messages/{en,es,ja}.json  Translations. Add keys to ALL three.
@@ -61,13 +58,13 @@ messages/{en,es,ja}.json  Translations. Add keys to ALL three.
 - **Route Handlers** (`app/api/`) only for system redirects like OAuth callbacks.
 - Server Components check auth by calling the backend (`/api/me`). Never parse
   JWTs client-side.
-- Zod validate at every API response boundary — use schemas in `lib/schemas.ts`.
+- Effect Schema-decode every API response using `@initium/core` contracts.
 - `middleware.ts` does cookie-presence fast path only. Real validation lives in
   Server Components.
 - Cookie flags: `httpOnly` + `Secure` (prod) + `SameSite=Lax`. Set in `lib/session.ts`.
 - TypeScript strict. No `any`. Use `unknown` + type guards.
-- **Zod v4 is pinned.** Use `.issues` (not `.errors`), `z.email()` (not
-  `z.string().email()`), `z.string().datetime()` for timestamp fields.
+- Run Effects at Next.js boundaries only; shared helpers return Effects and
+  rendering stays framework-native.
 - Use semantic Tailwind tokens: `bg-background`, `text-foreground`, `bg-card`,
   `text-muted`, `border-border`, `bg-accent`, `bg-accent-foreground`,
   `text-error`. Never hardcoded `text-gray-600`.
@@ -84,24 +81,19 @@ messages/{en,es,ja}.json  Translations. Add keys to ALL three.
 
 When an API change lands on the backend:
 
-1. Someone edits `backend/api/openapi.yaml`.
-2. Someone runs `make gen:openapi` → regenerates `web/src/lib/api-types.ts`.
-3. Update `web/src/lib/schemas.ts` to add a Zod schema for the new response
-   (or extend an existing one). Zod remains the runtime guard; generated
-   types are the compile-time check. Also update `web/src/lib/types.ts` if
-   you use a hand-written TypeScript alias alongside the generated one.
+1. Edit the typed Huma handler; generated OpenAPI is never hand-edited.
+2. Run `make gen/openapi` to regenerate OpenAPI and shared TypeScript types.
+3. Add or update the Effect Schema and conformance assertion in `packages/core`.
 4. **List endpoints use envelope objects** (e.g. `NoteList { notes: Note[] }`).
-   Zod schema and `apiFetch<T>` generic must match the envelope, not a bare
-   array — see `patterns/api-fetch.md` for the pattern.
-5. Server Components / Server Actions call the endpoint via `apiFetch<T>()`
-   with the Zod schema.
+   Effect Schema and `apiFetch()` call must match the envelope, not a bare array.
+5. Server Components / Server Actions call the endpoint through `apiFetch()`.
 
-Never hand-edit `api-types.ts`. Full workflow: `docs/OPENAPI.md`.
+Never hand-edit `packages/core/src/generated/api-types.ts`. Full workflow: `docs/OPENAPI.md`.
 
 **Cross-stack completeness**: if your feature requires a new endpoint,
 the backend handler + service + migration must exist before web code
 calls it. A web-only PR that `apiFetch`es a nonexistent endpoint will
-404 silently — `make check:parity` catches the spec side, but not the
+404 silently — `make check/parity` catches the spec side, but not the
 handler side. Pair with the backend change, or explicitly defer.
 
 ## Auth flow (browser)
@@ -138,7 +130,7 @@ handler side. Pair with the backend change, or explicitly defer.
 - Vitest + `@testing-library/react`. Tests in `src/__tests__/`.
 - Phased coverage gate: 25% lines/branches (current 78.84%/71.01%);
   ramps to 80% in follow-up PRs. Run with `npm run test:coverage`
-  or `make test:web:coverage`.
+  or `make test/web/coverage`.
 - **MSW v2 intercepts every backend call.** Default handlers in
   `src/__tests__/msw/handlers.ts` cover the 9 backend endpoints; per-test
   overrides go through `server.use(http.post(...))`. Setup hooks in
@@ -158,17 +150,15 @@ handler side. Pair with the backend change, or explicitly defer.
 
 ## Canonical exemplars (open these when unsure)
 
-- Server Action: `web/src/actions/auth.ts` <!-- expect: requestMagicLink --> — form state, Zod validation, toast-friendly returns.
-- API fetcher: `web/src/lib/api.ts` <!-- expect: apiFetch --> — Zod-validated response, ApiError object on failure.
+- Server Action: `web/src/actions/auth.ts` <!-- expect: requestMagicLink --> — form state, Effect validation, toast-friendly returns.
+- API fetcher: `web/src/lib/api.ts` <!-- expect: apiFetch --> — Effect-decoded response and typed failure mapping.
 - Session guard: `web/src/lib/session.ts` <!-- expect: hasSession -->, `web/src/middleware.ts` <!-- expect: PROTECTED_PATHS -->
 - Protected Server Component: `web/src/app/home/page.tsx` <!-- expect: getTranslations -->
 - Form component: `web/src/components/auth/MagicLinkForm.tsx` <!-- expect: useActionState --> — useActionState + toast + a11y.
 - Unit test: `web/src/__tests__/MagicLinkForm.test.tsx` <!-- expect: MagicLinkForm -->
 - Middleware test (cookie + refresh paths): `web/src/__tests__/middleware.test.ts` <!-- expect: middleware -->
 - MSW handlers: `web/src/__tests__/msw/handlers.ts` <!-- expect: defaultHandlers -->
-- apiFetch test (Bearer + Zod + non-JSON fallback): `web/src/__tests__/lib/api.test.ts` <!-- expect: apiFetch -->
-
-See also: `patterns/server-action.md`, `patterns/api-fetch.md`, `patterns/component.md`.
+- apiFetch test (Bearer + Schema + non-JSON fallback): `web/src/__tests__/lib/api.test.ts` <!-- expect: apiFetch -->
 
 ## Gotchas
 

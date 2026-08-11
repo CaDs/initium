@@ -10,9 +10,9 @@ forking POCs no longer pays a two-toolchain tax.
 cd mobile && npm install
 cp .env.example .env
 
-make dev:mobile             # Metro + QR for Expo Go on a real device
-make test:mobile            # Jest suite
-make lint:mobile            # ESLint + tsc --noEmit
+make dev/mobile             # Metro + QR for Expo Go on a real device
+make test/mobile            # Jest suite
+make lint/mobile            # ESLint + tsc --noEmit
 ```
 
 `make preflight` includes the mobile lint, typecheck, and test suite —
@@ -22,7 +22,7 @@ no Xcode or Android Studio needed.
 
 - `app/` — Expo Router routes (file-based)
 - `src/api/` — `APIClient`, token storage, models, endpoint helpers
-- `src/auth/` — Zustand auth store + selectors
+- `src/auth/` — Effect Atom auth workflows + selectors
 - `src/ui/` — shared UI primitives
 - `__tests__/` — Jest specs
 

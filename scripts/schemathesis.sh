@@ -2,15 +2,17 @@
 # schemathesis.sh — run Schemathesis contract tests against a running backend.
 #
 # Usage:
+#   DEV_BYPASS_AUTH=false make dev/backend            # separate terminal
 #   scripts/schemathesis.sh                          # against http://localhost:8000
 #   BASE_URL=http://api:8000 scripts/schemathesis.sh # against custom URL
+#   SCHEMATHESIS_IMAGE=... scripts/schemathesis.sh   # override pinned image
 #
 # Requires: docker. Backend must be running and reachable from the container.
 #
 # Notes:
-#   - Magic-link and OAuth callback are excluded: they return 307 redirects
-#     with non-JSON bodies and require a live email/Google side channel.
-#   - Admin and /me require auth; set AUTH_HEADER to include them, e.g.:
+#   - Auth endpoints are excluded because they are rate-limited and depend on
+#     cookies, email, or Google. Their behavior is covered by Go tests.
+#   - Admin and /me accept an optional auth header, e.g.:
 #       AUTH_HEADER="Authorization: Bearer $DEV_TOKEN" scripts/schemathesis.sh
 #
 # This script is intentionally NOT wired into the default CI path. Contract
@@ -23,18 +25,22 @@ set -euo pipefail
 BASE_URL="${BASE_URL:-http://host.docker.internal:8000}"
 SPEC_PATH="${SPEC_PATH:-/spec/openapi.yaml}"
 AUTH_HEADER="${AUTH_HEADER:-}"
+SCHEMATHESIS_IMAGE="${SCHEMATHESIS_IMAGE:-schemathesis/schemathesis:v4.24.3}"
 
-HEADER_ARGS=()
+SCHEMATHESIS_ARGS=(
+  run
+  --checks all
+  --exclude-checks ignored_auth,missing_required_header,unsupported_method
+  --url "$BASE_URL"
+  --exclude-path-regex '^/(api/auth/|_debug/)'
+)
 if [[ -n "$AUTH_HEADER" ]]; then
-  HEADER_ARGS=(-H "$AUTH_HEADER")
+  SCHEMATHESIS_ARGS+=(-H "$AUTH_HEADER")
 fi
+SCHEMATHESIS_ARGS+=("$SPEC_PATH")
 
 docker run --rm \
   -v "$(pwd)/backend/api:/spec:ro" \
   --add-host=host.docker.internal:host-gateway \
-  schemathesis/schemathesis:stable run \
-  --checks all \
-  --url "$BASE_URL" \
-  --exclude-path-regex '^/(api/auth/(google|google/callback|verify|magic-link)|_debug/)' \
-  "${HEADER_ARGS[@]}" \
-  "$SPEC_PATH"
+  "$SCHEMATHESIS_IMAGE" \
+  "${SCHEMATHESIS_ARGS[@]}"

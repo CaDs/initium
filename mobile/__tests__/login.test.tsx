@@ -1,8 +1,9 @@
 import { render } from '@testing-library/react-native';
+import { RegistryProvider } from '@effect-atom/atom-react/RegistryContext';
 import React from 'react';
 
 import LoginScreen from '../app/login';
-import { useAuthStore } from '@/auth/store';
+import { authStateAtom } from '@/auth/store';
 
 jest.mock('expo-router', () => ({
   Redirect: () => null,
@@ -45,12 +46,18 @@ jest.mock('react-native-safe-area-context', () => {
 beforeEach(() => {
   mockUseAuthRequest.mockClear();
   mockGoogleConfigured = false;
-  useAuthStore.setState({ status: 'unauthenticated', user: null, error: null });
 });
+
+const renderLogin = () =>
+  render(
+    <RegistryProvider initialValues={[[authStateAtom, { _tag: 'Unauthenticated' }]]}>
+      <LoginScreen />
+    </RegistryProvider>,
+  );
 
 describe('LoginScreen', () => {
   it('renders without invoking Google.useAuthRequest when no client IDs are configured', () => {
-    const { getByText } = render(<LoginScreen />);
+    const { getByText } = renderLogin();
 
     expect(getByText('Initium')).toBeTruthy();
     expect(getByText('Email magic link')).toBeTruthy();
@@ -60,7 +67,7 @@ describe('LoginScreen', () => {
 
   it('mounts the Google button (and runs the hook) when configured', () => {
     mockGoogleConfigured = true;
-    const { getByText } = render(<LoginScreen />);
+    const { getByText } = renderLogin();
 
     expect(getByText('Continue with Google')).toBeTruthy();
     expect(mockUseAuthRequest).toHaveBeenCalledTimes(1);

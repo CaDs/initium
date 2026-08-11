@@ -8,13 +8,24 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-status=$(git status --porcelain)
-if [[ -z "$status" ]]; then
-  echo "git tree clean: ok"
-  exit 0
+fail=0
+
+if ! git diff --quiet; then
+  printf "\033[31munstaged changes:\033[0m\n"
+  git diff --name-only | sed 's/^/  /'
+  fail=1
 fi
 
-printf "\033[31muntracked or unstaged changes:\033[0m\n"
-echo "$status" | sed 's/^/  /'
-printf "\n\033[31mstage every file you expect to ship (git add -A) and re-run preflight.\033[0m\n"
-exit 1
+untracked=$(git ls-files --others --exclude-standard)
+if [[ -n "$untracked" ]]; then
+  printf "\033[31muntracked files:\033[0m\n"
+  echo "$untracked" | sed 's/^/  /'
+  fail=1
+fi
+
+if [[ "$fail" -ne 0 ]]; then
+  printf "\n\033[31mstage every file you expect to ship (git add -A) and re-run preflight.\033[0m\n"
+  exit 1
+fi
+
+echo "worktree changes fully staged: ok"

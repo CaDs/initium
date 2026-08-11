@@ -9,7 +9,10 @@ const initialState: MagicLinkState = { ok: false, message: "" };
 
 export default function MagicLinkForm() {
   const t = useTranslations("login.magicLink");
-  const [state, action, isPending] = useActionState(requestMagicLink, initialState);
+  const [state, action, isPending] = useActionState(
+    requestMagicLink,
+    initialState,
+  );
 
   useEffect(() => {
     if (!state.message) return;
@@ -24,11 +27,7 @@ export default function MagicLinkForm() {
 
   if (state.ok) {
     return (
-      <p
-        role="status"
-        aria-live="polite"
-        className="text-sm text-foreground"
-      >
+      <p role="status" aria-live="polite" className="text-sm text-foreground">
         {t("sent")}
       </p>
     );

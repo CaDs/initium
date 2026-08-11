@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { http, HttpResponse } from "msw";
-import { z } from "zod";
+import { LandingInfoSchema } from "@initium/core";
+import { Schema } from "effect";
 
 import { server } from "../msw/server";
 import { absoluteUrl, errorResponse } from "../msw/handlers";
@@ -32,7 +33,7 @@ afterEach(() => {
 describe("apiFetch", () => {
   it("returns { ok: true, data } on a 2xx response with valid schema", async () => {
     const { apiFetch } = await import("@/lib/api");
-    const schema = z.object({ name: z.string() });
+    const schema = Schema.Struct({ name: Schema.String });
 
     const result = await apiFetch("/api/landing", {}, schema);
 
@@ -40,7 +41,8 @@ describe("apiFetch", () => {
     // Discriminated union narrowing — guarded by the assert above. The
     // /* v8 ignore next */ comment prevents the unreachable branch from
     // skewing branch coverage.
-    if (!result.ok) throw new Error("unreachable: result.ok asserted true above");
+    if (!result.ok)
+      throw new Error("unreachable: result.ok asserted true above");
     expect(result.data.name).toBe("Initium");
   });
 
@@ -56,7 +58,7 @@ describe("apiFetch", () => {
     );
 
     const { apiFetch } = await import("@/lib/api");
-    await apiFetch("/api/landing");
+    await apiFetch("/api/landing", {}, LandingInfoSchema);
 
     // The Authorization header is the primary auth signal — the backend
     // prefers it over the cookie. (apiFetch also sets a Cookie header for
@@ -74,26 +76,33 @@ describe("apiFetch", () => {
     );
 
     const { apiFetch } = await import("@/lib/api");
-    const result = await apiFetch("/api/landing");
+    const result = await apiFetch("/api/landing", {}, LandingInfoSchema);
 
     expect(result.ok).toBe(false);
-    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    if (result.ok)
+      throw new Error("unreachable: result.ok asserted false above");
     expect(result.error.code).toBe("INVALID_CREDENTIALS");
     expect(result.error.message).toBe("no session");
   });
 
   it("falls back to status text when error body is not JSON", async () => {
     server.use(
-      http.get(absoluteUrl("/api/landing"), () =>
-        new HttpResponse("not json at all", { status: 502, statusText: "Bad Gateway" }),
+      http.get(
+        absoluteUrl("/api/landing"),
+        () =>
+          new HttpResponse("not json at all", {
+            status: 502,
+            statusText: "Bad Gateway",
+          }),
       ),
     );
 
     const { apiFetch } = await import("@/lib/api");
-    const result = await apiFetch("/api/landing");
+    const result = await apiFetch("/api/landing", {}, LandingInfoSchema);
 
     expect(result.ok).toBe(false);
-    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    if (result.ok)
+      throw new Error("unreachable: result.ok asserted false above");
     expect(result.error.code).toBe("UNKNOWN");
     expect(result.error.message).toBe("Bad Gateway");
   });
@@ -106,12 +115,13 @@ describe("apiFetch", () => {
       ),
     );
 
-    const schema = z.object({ name: z.string() });
+    const schema = Schema.Struct({ name: Schema.String });
     const { apiFetch } = await import("@/lib/api");
     const result = await apiFetch("/api/landing", {}, schema);
 
     expect(result.ok).toBe(false);
-    if (result.ok) throw new Error("unreachable: result.ok asserted false above");
+    if (result.ok)
+      throw new Error("unreachable: result.ok asserted false above");
     expect(result.error.code).toBe("VALIDATION_ERROR");
     expect(result.error.message).toMatch(/validation failed/i);
   });

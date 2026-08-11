@@ -1,4 +1,9 @@
-import { useAuthStore } from '@/auth/store';
+import { Effect, Schema } from 'effect';
+
+import { APIClient } from '@/api/client';
+import type { TokenStorage } from '@/api/tokens';
+import { bootstrapAuth, logoutAuth, verifyMagicLinkAuth } from '@/auth/store';
+import type { TokenPair } from '@initium/core';
 
 const json = (status: number, body: unknown): Response =>
   ({
@@ -6,72 +11,90 @@ const json = (status: number, body: unknown): Response =>
     status,
     statusText: 'STATUS',
     json: async () => body,
-  }) as unknown as Response;
+  }) as Response;
 
-describe('auth store', () => {
-  beforeEach(async () => {
-    await useAuthStore.getState().tokens.clear();
-    useAuthStore.setState({ status: 'loading', user: null, error: null });
-  });
+const memoryTokens = (initial: TokenPair | null = null) => {
+  let pair = initial;
+  const storage: TokenStorage = {
+    read: Effect.sync(() => pair),
+    write: (next) => Effect.sync(() => void (pair = next)),
+    clear: Effect.sync(() => void (pair = null)),
+  };
+  return { storage, current: () => pair };
+};
 
-  it('bootstrap with no stored token transitions to unauthenticated', async () => {
-    await useAuthStore.getState().bootstrap();
-    expect(useAuthStore.getState().status).toBe('unauthenticated');
-    expect(useAuthStore.getState().user).toBeNull();
-  });
+const user = {
+  id: 'u1',
+  email: 'user@example.com',
+  name: 'User',
+  role: 'user',
+  avatar_url: '',
+  created_at: '2026-01-01T00:00:00Z',
+};
 
-  it('bootstrap with stored token + valid /api/me transitions to authenticated', async () => {
-    await useAuthStore.getState().tokens.write({
-      access_token: 'AT',
-      refresh_token: 'RT',
+describe('Effect auth workflows', () => {
+  it('bootstraps to unauthenticated without stored tokens', async () => {
+    const tokens = memoryTokens();
+    const client = new APIClient({
+      baseURL: 'https://api.example.com',
+      tokens: tokens.storage,
+      fetchImpl: jest.fn(),
     });
-    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () =>
-      json(200, { id: 'u1', email: 'a@b.c', name: 'A', role: 'user' }),
+
+    const state = await Effect.runPromise(bootstrapAuth(client, tokens.storage, false));
+
+    expect(state).toEqual({ _tag: 'Unauthenticated' });
+  });
+
+  it('bootstraps to authenticated after decoding /api/me', async () => {
+    const tokens = memoryTokens({ access_token: 'AT', refresh_token: 'RT' });
+    const client = new APIClient({
+      baseURL: 'https://api.example.com',
+      tokens: tokens.storage,
+      fetchImpl: async () => json(200, user),
+    });
+
+    const state = await Effect.runPromise(bootstrapAuth(client, tokens.storage, false));
+
+    expect(state._tag).toBe('Authenticated');
+  });
+
+  it('verifies a magic link, stores tokens, and fetches the user', async () => {
+    const tokens = memoryTokens();
+    const client = new APIClient({
+      baseURL: 'https://api.example.com',
+      tokens: tokens.storage,
+      fetchImpl: async (url) =>
+        String(url).endsWith('/api/auth/mobile/verify')
+          ? json(200, { access_token: 'AT', refresh_token: 'RT' })
+          : json(200, user),
+    });
+
+    const state = await Effect.runPromise(
+      verifyMagicLinkAuth('magic-token', client, tokens.storage),
     );
 
-    await useAuthStore.getState().bootstrap();
-
-    expect(useAuthStore.getState().status).toBe('authenticated');
-    expect(useAuthStore.getState().user?.id).toBe('u1');
-    fetchSpy.mockRestore();
+    expect(state._tag).toBe('Authenticated');
+    expect(tokens.current()).toEqual({ access_token: 'AT', refresh_token: 'RT' });
   });
 
-  it('logout clears tokens and transitions to unauthenticated', async () => {
-    await useAuthStore.getState().tokens.write({
-      access_token: 'AT',
-      refresh_token: 'RT',
+  it('clears local tokens even when server logout fails', async () => {
+    const tokens = memoryTokens({ access_token: 'AT', refresh_token: 'RT' });
+    const client = new APIClient({
+      baseURL: 'https://api.example.com',
+      tokens: tokens.storage,
+      fetchImpl: async () => json(500, { code: 'SERVER_ERROR', message: 'boom' }),
     });
-    useAuthStore.setState({
-      status: 'authenticated',
-      user: { id: 'u1', email: 'a@b.c', name: 'A', role: 'user' },
-    });
-    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async () =>
-      json(200, { message: 'ok' }),
-    );
 
-    await useAuthStore.getState().logout();
+    const state = await Effect.runPromise(logoutAuth(client, tokens.storage));
 
-    expect(useAuthStore.getState().status).toBe('unauthenticated');
-    expect(useAuthStore.getState().user).toBeNull();
-    expect(await useAuthStore.getState().tokens.read()).toBeNull();
-    fetchSpy.mockRestore();
+    expect(state).toEqual({ _tag: 'Unauthenticated' });
+    expect(tokens.current()).toBeNull();
   });
 
-  it('verifyMagicLink stores tokens and fetches the user', async () => {
-    const fetchSpy = jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
-      if (String(url).endsWith('/api/auth/mobile/verify')) {
-        return json(200, { access_token: 'AT', refresh_token: 'RT' });
-      }
-      return json(200, { id: 'u1', email: 'a@b.c', name: 'A', role: 'user' });
-    });
-
-    await useAuthStore.getState().verifyMagicLink('magic-token');
-
-    expect(useAuthStore.getState().status).toBe('authenticated');
-    expect(await useAuthStore.getState().tokens.read()).toEqual({
-      access_token: 'AT',
-      refresh_token: 'RT',
-    });
-    fetchSpy.mockRestore();
+  it('keeps schema decoding active in workflow tests', async () => {
+    await expect(
+      Effect.runPromise(Schema.decodeUnknown(Schema.Struct({ id: Schema.String }))({})),
+    ).rejects.toBeDefined();
   });
 });

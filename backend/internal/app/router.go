@@ -35,7 +35,7 @@ type RouterDeps struct {
 }
 
 // NewRouter wires every HTTP route. Mounted routes must match the OpenAPI
-// spec 1:1 — Huma registration is the source of truth, and `make check:parity`
+// spec 1:1 — Huma registration is the source of truth, and `make check/parity`
 // catches spec paths with no client consumer.
 func NewRouter(d RouterDeps) chi.Router {
 	r := chi.NewRouter()
